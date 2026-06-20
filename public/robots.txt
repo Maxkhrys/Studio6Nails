@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Keep private / transactional areas out of the index
+Disallow: /account
+Disallow: /admin
+Disallow: /book
+Disallow: /auth
+
+Sitemap: https://studio6nails.ie/sitemap-index.xml

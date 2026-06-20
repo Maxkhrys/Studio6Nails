@@ -1,0 +1,123 @@
+---
+import { SITE, fullAddress } from '../lib/site';
+const year = new Date().getFullYear();
+---
+
+<footer class="footer">
+  <div class="wrap footer__inner">
+    <div class="footer__brand">
+      <p class="footer__mark">Studio 6 Nails</p>
+      <p class="footer__tag">{SITE.tagline}.</p>
+    </div>
+
+    <div class="footer__cols">
+      <div class="footer__col">
+        <h3 class="footer__h">Visit</h3>
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+            `${SITE.name} ${fullAddress()}`,
+          )}`}
+          target="_blank"
+          rel="noopener"
+        >
+          {SITE.address.street}<br />
+          {SITE.address.city}<br />
+          {SITE.address.postalCode}
+        </a>
+      </div>
+
+      <div class="footer__col">
+        <h3 class="footer__h">Contact</h3>
+        <a href={`tel:${SITE.phoneE164}`}>{SITE.phone}</a>
+        <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
+        <a href={SITE.instagram.url} target="_blank" rel="noopener">
+          {SITE.instagram.handle}
+        </a>
+      </div>
+
+      <div class="footer__col">
+        <h3 class="footer__h">Book</h3>
+        <a href="/book">Book an appointment</a>
+        <a href="/account">My account</a>
+        <a href="/#services">Services &amp; pricing</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap footer__base">
+    <p>© {year} {SITE.legalName}. All rights reserved.</p>
+    <p>Kilkenny, Ireland</p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    background: var(--porcelain-deep);
+    border-top: 1px solid var(--line);
+    padding-top: clamp(4rem, 8vw, 6rem);
+  }
+
+  .footer__inner {
+    display: grid;
+    gap: clamp(2.5rem, 6vw, 5rem);
+    grid-template-columns: 1fr;
+    padding-bottom: clamp(3rem, 6vw, 4rem);
+  }
+
+  @media (min-width: 760px) {
+    .footer__inner {
+      grid-template-columns: 1fr 1.4fr;
+      align-items: start;
+    }
+  }
+
+  .footer__mark {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3rem);
+    color: var(--ink);
+  }
+
+  .footer__tag {
+    color: var(--ink-mid);
+    max-width: 22ch;
+  }
+
+  .footer__cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 2rem;
+  }
+
+  .footer__h {
+    font-family: var(--font-body);
+    font-size: var(--text-tiny);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--rose-deep);
+    margin-bottom: 1rem;
+    font-weight: 600;
+  }
+
+  .footer__col a {
+    display: block;
+    color: var(--ink-soft);
+    margin-bottom: 0.6rem;
+    transition: color var(--dur) var(--ease);
+    line-height: 1.5;
+  }
+
+  .footer__col a:hover {
+    color: var(--rose-deep);
+  }
+
+  .footer__base {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 1.6rem;
+    border-top: 1px solid var(--line);
+    font-size: var(--text-tiny);
+    color: var(--ink-faint);
+  }
+</style>

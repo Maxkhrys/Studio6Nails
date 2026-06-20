@@ -1,0 +1,448 @@
+---
+import Base from '../layouts/Base.astro';
+import Placeholder from '../components/Placeholder.astro';
+import { SITE, SERVICE_CATEGORIES, fullAddress } from '../lib/site';
+
+const introWords =
+  'A calm Kilkenny studio where hands, brows and lashes are cared for with patience, precision and a little artistry.'.split(
+    ' ',
+  );
+---
+
+<Base>
+  <!-- ===================== HERO ===================== -->
+  <section class="hero" id="top">
+    <div class="hero__media">
+      <Placeholder
+        subject="Hero — studio interior / hands close-up (real photo pending)"
+        ratio="16/10"
+        tint={2}
+      />
+    </div>
+    <div class="hero__scrim" aria-hidden="true"></div>
+    <div class="hero__content wrap">
+      <p class="eyebrow" data-hero-fade>Kilkenny · Est. on John's Bridge</p>
+      <h1 class="hero__title" data-hero-fade>
+        Beautiful nails,<br /><em>quietly</em> done well.
+      </h1>
+      <p class="hero__sub" data-hero-fade>
+        Manicures, pedicures, brows, lashes and bespoke nail art — in a calm
+        studio in the heart of Kilkenny.
+      </p>
+      <div class="hero__actions" data-hero-fade>
+        <a class="btn btn--primary" href="/book">Book an appointment</a>
+        <a class="btn btn--ghost" href="/#services">View services</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== INTRO STATEMENT ===================== -->
+  <section class="section intro wrap" id="intro">
+    <p class="statement">
+      {introWords.map((w) => <span class="statement__word">{w} </span>)}
+    </p>
+  </section>
+
+  <!-- ===================== SERVICES ===================== -->
+  <section class="section services" id="services">
+    <div class="wrap">
+      <header class="section-head" data-reveal>
+        <p class="eyebrow">What we do</p>
+        <h2>Services</h2>
+        <p class="lede">
+          Five things, done properly. Full pricing is confirmed in studio and
+          shown at booking.
+        </p>
+        <p class="note">Prices shown online are being finalised with the studio.</p>
+      </header>
+
+      <ul class="services__grid">
+        {
+          SERVICE_CATEGORIES.map((cat, i) => (
+            <li class="service-card" data-reveal style={`--d:${i * 0.05}s`}>
+              <span class="service-card__num">{String(i + 1).padStart(2, '0')}</span>
+              <h3>{cat.label}</h3>
+              <p>{cat.blurb}</p>
+            </li>
+          ))
+        }
+      </ul>
+
+      <div class="services__cta" data-reveal>
+        <a class="btn btn--primary" href="/book">Book now</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== GALLERY ===================== -->
+  <section class="section gallery" id="gallery">
+    <div class="wrap">
+      <header class="section-head section-head--center" data-reveal>
+        <p class="eyebrow">The work</p>
+        <h2>A look inside</h2>
+      </header>
+
+      <div class="gallery__grid">
+        <Placeholder subject="Nail art close-up — hand-painted detail" ratio="4/5" tint={0} parallax={4} class="g1" />
+        <Placeholder subject="Manicure in progress — hands at the table" ratio="1/1" tint={1} class="g2" />
+        <Placeholder subject="Studio interior — chairs & styling" ratio="1/1" tint={3} class="g3" />
+        <Placeholder subject="Finished gel set — colour & shine" ratio="4/5" tint={2} parallax={4} class="g4" />
+      </div>
+      <p class="gallery__note">
+        Images are tasteful placeholders pending the studio's real photography.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================== ABOUT ===================== -->
+  <section class="section about" id="about">
+    <div class="wrap about__grid">
+      <div class="about__media" data-reveal>
+        <Placeholder subject="Sarah / the studio — portrait (real photo pending)" ratio="4/5" tint={0} parallax={5} />
+      </div>
+      <div class="about__copy" data-reveal>
+        <p class="eyebrow">Our studio</p>
+        <h2>Care that shows in the detail</h2>
+        <p>
+          Studio 6 Nails is a small, considered space on John's Bridge in
+          Kilkenny. Every appointment is unhurried — time to get the shape, the
+          finish and the little details exactly right.
+        </p>
+        <p>
+          From a clean classic manicure to fully bespoke nail art, the focus is
+          the same: healthy nails, a beautiful result, and a calm hour that's
+          just for you.
+        </p>
+        <a class="btn btn--ghost" href={SITE.instagram.url} target="_blank" rel="noopener">
+          Follow {SITE.instagram.handle}
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== VISIT / CTA ===================== -->
+  <section class="section visit" id="visit">
+    <div class="wrap visit__grid">
+      <div class="visit__copy" data-reveal>
+        <p class="eyebrow">Visit</p>
+        <h2>Find us in Kilkenny</h2>
+        <dl class="visit__details">
+          <div>
+            <dt>Address</dt>
+            <dd>{fullAddress()}</dd>
+          </div>
+          <div>
+            <dt>Phone</dt>
+            <dd><a href={`tel:${SITE.phoneE164}`}>{SITE.phone}</a></dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd><a href={`mailto:${SITE.email}`}>{SITE.email}</a></dd>
+          </div>
+          <div>
+            <dt>Hours</dt>
+            <dd class="visit__hours">
+              {
+                SITE.hours.map((h) => (
+                  <span>
+                    {h.day}: {h.open ? `${h.open}–${h.close}` : 'Closed'}
+                  </span>
+                ))
+              }
+              {SITE.hoursArePlaceholder && <span class="note">Hours to be confirmed by the studio.</span>}
+            </dd>
+          </div>
+        </dl>
+        <a class="btn btn--primary" href="/book">Book an appointment</a>
+      </div>
+      <div class="visit__map" data-reveal>
+        <Placeholder subject="Map / studio exterior on John's Bridge" ratio="4/5" tint={3} />
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    min-height: 100svh;
+    display: flex;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+
+  .hero__media {
+    position: absolute;
+    inset: -8% 0;
+    z-index: 0;
+  }
+
+  .hero__media :global(figure) {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .hero__scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(
+      to top,
+      rgba(47, 36, 41, 0.55) 0%,
+      rgba(47, 36, 41, 0.18) 40%,
+      rgba(47, 36, 41, 0.05) 100%
+    );
+  }
+
+  .hero__content {
+    position: relative;
+    z-index: 2;
+    padding-bottom: clamp(3rem, 9vh, 7rem);
+    padding-top: calc(var(--nav-height) + 2rem);
+    color: var(--porcelain);
+  }
+
+  .hero__content .eyebrow {
+    color: rgba(252, 248, 245, 0.85);
+  }
+
+  .hero__title {
+    font-size: var(--text-hero);
+    margin: 0.4em 0 0.3em;
+    max-width: 16ch;
+  }
+
+  .hero__title em {
+    font-style: italic;
+    color: var(--blush);
+  }
+
+  .hero__sub {
+    max-width: 44ch;
+    font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+    color: rgba(252, 248, 245, 0.9);
+  }
+
+  .hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .hero__actions .btn--ghost {
+    color: var(--porcelain);
+    border-color: rgba(252, 248, 245, 0.4);
+  }
+
+  .hero__actions .btn--ghost:hover {
+    border-color: var(--porcelain);
+    color: var(--porcelain);
+  }
+
+  /* ---------- Intro statement ---------- */
+  .intro {
+    padding-block: clamp(5rem, 12vw, 9rem);
+  }
+
+  .statement {
+    font-family: var(--font-display);
+    font-size: var(--text-statement);
+    line-height: 1.28;
+    max-width: 24ch;
+    margin-inline: auto;
+    text-align: center;
+    letter-spacing: -0.01em;
+  }
+
+  .js .statement__word {
+    opacity: 0.16;
+  }
+
+  /* ---------- Section heads ---------- */
+  .section-head {
+    max-width: 52ch;
+    margin-bottom: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  .section-head--center {
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .section-head h2 {
+    font-size: var(--text-h2);
+    margin: 0.3em 0 0.4em;
+  }
+
+  .note {
+    font-size: var(--text-tiny);
+    color: var(--ink-faint);
+    font-style: italic;
+    margin-top: 0.5rem;
+  }
+
+  /* ---------- Services ---------- */
+  .services {
+    background: var(--porcelain-deep);
+  }
+
+  .services__grid {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 640px) {
+    .services__grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (min-width: 980px) {
+    .services__grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .service-card {
+    background: var(--porcelain);
+    padding: clamp(1.8rem, 3vw, 2.6rem);
+    transition: background var(--dur) var(--ease);
+    transition-delay: var(--d, 0s);
+  }
+
+  .service-card:hover {
+    background: #fff;
+  }
+
+  .service-card__num {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    color: var(--gold-deep);
+  }
+
+  .service-card h3 {
+    font-size: var(--text-h3);
+    margin: 0.6rem 0 0.5rem;
+  }
+
+  .service-card p {
+    color: var(--ink-soft);
+    font-size: var(--text-small);
+  }
+
+  .services__cta {
+    margin-top: 2.5rem;
+    text-align: center;
+  }
+
+  /* ---------- Gallery ---------- */
+  .gallery__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: clamp(0.8rem, 2vw, 1.4rem);
+  }
+
+  @media (min-width: 860px) {
+    .gallery__grid {
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: 1fr;
+    }
+    .gallery__grid :global(.g1) { grid-row: span 2; }
+    .gallery__grid :global(.g4) { grid-row: span 2; }
+  }
+
+  .gallery__note {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: var(--text-tiny);
+    color: var(--ink-faint);
+    font-style: italic;
+  }
+
+  /* ---------- About ---------- */
+  .about__grid {
+    display: grid;
+    gap: clamp(2.5rem, 6vw, 5rem);
+    align-items: center;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 860px) {
+    .about__grid {
+      grid-template-columns: 0.85fr 1fr;
+    }
+  }
+
+  .about__copy h2 {
+    font-size: var(--text-h2);
+    margin: 0.3em 0 0.6em;
+  }
+
+  .about__copy p {
+    color: var(--ink-soft);
+    margin-bottom: 1.2rem;
+    max-width: 50ch;
+  }
+
+  .about__copy .btn {
+    margin-top: 0.8rem;
+  }
+
+  /* ---------- Visit ---------- */
+  .visit {
+    background: var(--blush);
+  }
+
+  .visit__grid {
+    display: grid;
+    gap: clamp(2.5rem, 6vw, 5rem);
+    align-items: center;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 860px) {
+    .visit__grid {
+      grid-template-columns: 1fr 0.8fr;
+    }
+  }
+
+  .visit__copy h2 {
+    font-size: var(--text-h2);
+    margin: 0.3em 0 1.2em;
+  }
+
+  .visit__details {
+    display: grid;
+    gap: 1.4rem;
+    margin-bottom: 2rem;
+  }
+
+  .visit__details dt {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--rose-deep);
+    margin-bottom: 0.3rem;
+  }
+
+  .visit__details dd {
+    color: var(--ink);
+  }
+
+  .visit__hours {
+    display: grid;
+    gap: 0.15rem;
+    font-size: var(--text-small);
+    color: var(--ink-soft);
+  }
+</style>

@@ -1,0 +1,77 @@
+---
+/**
+ * Clearly-labeled image placeholder.
+ *
+ * Renders an elegant, fixed-aspect panel (no CLS) using the SAME
+ * `figure[data-media]` markup that real photos will use — so when the
+ * client supplies real assets, each call is swapped for astro:assets
+ * <Image> with identical layout and reveal animation.
+ *
+ * Honest by design: every panel is badged PLACEHOLDER so nothing here is
+ * ever mistaken for a real Studio 6 photo.
+ */
+interface Props {
+  /** What the real photo will show — guides the client + the eventual shoot. */
+  subject: string;
+  /** width / height ratio, e.g. "4/5", "16/9", "1/1". */
+  ratio?: string;
+  parallax?: number | false;
+  /** Decorative tint index 0–3 for visual variety. */
+  tint?: 0 | 1 | 2 | 3;
+  class?: string;
+}
+
+const { subject, ratio = '4/5', parallax = false, tint = 0, class: className = '' } = Astro.props;
+
+const tints = [
+  ['#f1e1da', '#e7d0c8'],
+  ['#efe2d6', '#e3cdbc'],
+  ['#ece0e2', '#ddc9cd'],
+  ['#e9e3da', '#d8cdbe'],
+];
+const [from, to] = tints[tint];
+---
+
+<figure
+  class:list={['ph', className]}
+  data-media
+  data-parallax={parallax === false ? undefined : String(parallax)}
+  style={`--ph-from:${from};--ph-to:${to};aspect-ratio:${ratio};`}
+>
+  <span class="placeholder-badge">Placeholder</span>
+  <div class="ph__art" aria-hidden="true">
+    <svg viewBox="0 0 48 48" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.2">
+      <rect x="6" y="6" width="36" height="36" rx="3" />
+      <circle cx="17" cy="18" r="4" />
+      <path d="M6 34l10-9 8 7 8-8 10 9" />
+    </svg>
+    <p class="ph__subject">{subject}</p>
+  </div>
+</figure>
+
+<style>
+  .ph {
+    background: linear-gradient(150deg, var(--ph-from), var(--ph-to));
+    display: grid;
+    place-items: center;
+  }
+
+  .ph__art {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.7rem;
+    color: var(--rose-deep);
+    text-align: center;
+    padding: 1.5rem;
+    opacity: 0.78;
+  }
+
+  .ph__subject {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.04em;
+    color: var(--espresso-soft);
+    max-width: 22ch;
+    line-height: 1.4;
+  }
+</style>

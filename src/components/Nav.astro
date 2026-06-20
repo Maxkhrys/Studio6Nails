@@ -1,0 +1,173 @@
+---
+import { SITE } from '../lib/site';
+
+const links = [
+  { href: '/#services', label: 'Services' },
+  { href: '/#gallery', label: 'Gallery' },
+  { href: '/#about', label: 'About' },
+  { href: '/#visit', label: 'Visit' },
+];
+---
+
+<header id="site-nav" class="nav">
+  <div class="nav__inner wrap">
+    <a class="nav__brand" href="/" aria-label={`${SITE.name} — home`}>
+      <span class="nav__mark">S6</span>
+      <span class="nav__name">Studio 6 Nails</span>
+    </a>
+
+    <button
+      class="nav__toggle"
+      data-nav-toggle
+      aria-expanded="false"
+      aria-controls="nav-menu"
+      aria-label="Open menu"
+    >
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav id="nav-menu" class="nav__menu" aria-label="Primary">
+      {links.map((l) => <a href={l.href}>{l.label}</a>)}
+      <a class="nav__cta" href="/book">Book Now</a>
+      <a class="nav__account" href="/account">Account</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 1000;
+    height: var(--nav-height);
+    display: flex;
+    align-items: center;
+    transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+      backdrop-filter var(--dur) var(--ease);
+  }
+
+  .nav.is-scrolled {
+    background: rgba(252, 248, 245, 0.82);
+    backdrop-filter: blur(12px) saturate(1.1);
+    box-shadow: 0 1px 0 var(--line-soft);
+  }
+
+  .nav__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .nav__brand {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+
+  .nav__mark {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--rose-deep);
+    letter-spacing: 0.02em;
+  }
+
+  .nav__name {
+    font-size: var(--text-small);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .nav__menu {
+    display: flex;
+    align-items: center;
+    gap: clamp(1rem, 2.4vw, 2.2rem);
+  }
+
+  .nav__menu a {
+    font-size: var(--text-small);
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    transition: color var(--dur) var(--ease);
+  }
+
+  .nav__menu a:hover {
+    color: var(--rose-deep);
+  }
+
+  .nav__cta {
+    padding: 0.6em 1.3em;
+    border-radius: var(--radius);
+    background: var(--espresso);
+    color: var(--porcelain) !important;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: var(--text-tiny) !important;
+  }
+
+  .nav__cta:hover {
+    background: var(--rose-deep);
+  }
+
+  .nav__account {
+    text-transform: uppercase;
+    font-size: var(--text-tiny) !important;
+    letter-spacing: 0.12em;
+  }
+
+  .nav__toggle {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    width: 30px;
+    background: none;
+    border: 0;
+    padding: 6px 0;
+  }
+
+  .nav__toggle span {
+    display: block;
+    height: 1.5px;
+    width: 100%;
+    background: var(--ink);
+    transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease);
+  }
+
+  @media (max-width: 860px) {
+    .nav__toggle {
+      display: flex;
+    }
+
+    .nav__menu {
+      position: fixed;
+      inset: var(--nav-height) 0 auto;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.4rem;
+      padding: 2rem var(--gutter) 2.5rem;
+      background: rgba(252, 248, 245, 0.97);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+      transform: translateY(-12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease);
+    }
+
+    .nav__menu.is-open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .nav__menu a {
+      font-size: 1.15rem;
+    }
+
+    :global(body.nav-locked) {
+      overflow: hidden;
+    }
+  }
+</style>
