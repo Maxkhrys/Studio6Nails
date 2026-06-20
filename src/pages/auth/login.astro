@@ -1,0 +1,118 @@
+---
+export const prerender = false;
+
+import Base from '../../layouts/Base.astro';
+import { createSupabaseServer } from '../../lib/supabase/server';
+
+// Already signed in? Go to the account.
+if (Astro.locals.user) return Astro.redirect('/account');
+
+const redirectParam = Astro.url.searchParams.get('redirect') || '/account';
+const safeRedirect = redirectParam.startsWith('/') ? redirectParam : '/account';
+
+let error: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const email = String(form.get('email') || '').trim();
+  const password = String(form.get('password') || '');
+
+  if (!email || !password) {
+    error = 'Please enter your email and password.';
+  } else {
+    const supabase = createSupabaseServer(Astro.cookies);
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError) {
+      error = 'That email and password didn’t match. Please try again.';
+    } else {
+      return Astro.redirect(safeRedirect);
+    }
+  }
+}
+---
+
+<Base title="Sign in" noindex={true}>
+  <section class="auth section">
+    <div class="auth__card" data-reveal>
+      <p class="eyebrow">Welcome back</p>
+      <h1>Sign in</h1>
+      <p class="auth__sub">Manage your appointments with Studio 6 Nails.</p>
+
+      {error && <p class="auth__error" role="alert">{error}</p>}
+
+      <form method="POST" class="auth__form">
+        <input type="hidden" name="redirect" value={safeRedirect} />
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+        <button class="btn btn--primary" type="submit">Sign in</button>
+      </form>
+
+      <p class="auth__alt">
+        New here? <a href={`/auth/signup?redirect=${encodeURIComponent(safeRedirect)}`}>Create an account</a>
+      </p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .auth {
+    min-height: 70vh;
+    display: grid;
+    place-items: center;
+    padding-top: calc(var(--nav-height) + 3rem);
+  }
+  .auth__card {
+    width: 100%;
+    max-width: 26rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: clamp(2rem, 4vw, 3rem);
+  }
+  .auth__card h1 {
+    font-size: var(--text-h2);
+    margin: 0.3em 0 0.4em;
+  }
+  .auth__sub {
+    color: var(--ink-soft);
+    margin-bottom: 1.6rem;
+  }
+  .auth__form {
+    display: grid;
+    gap: 1.1rem;
+  }
+  .auth__form .btn {
+    margin-top: 0.5rem;
+    justify-content: center;
+  }
+  .auth__alt {
+    margin-top: 1.4rem;
+    font-size: var(--text-small);
+    color: var(--ink-soft);
+  }
+  .auth__alt a {
+    color: var(--rose-deep);
+    text-decoration: underline;
+  }
+  .auth__error {
+    background: #fbeceb;
+    border: 1px solid #e7bcb8;
+    color: #8a3b34;
+    padding: 0.8em 1em;
+    border-radius: var(--radius);
+    font-size: var(--text-small);
+    margin-bottom: 1.2rem;
+  }
+</style>

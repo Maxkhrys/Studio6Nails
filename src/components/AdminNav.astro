@@ -1,0 +1,110 @@
+---
+interface Props {
+  active: 'dashboard' | 'availability' | 'services' | 'staff';
+  role: 'owner' | 'staff';
+  name?: string | null;
+}
+const { active, role, name } = Astro.props;
+
+const links = [
+  { id: 'dashboard', href: '/admin', label: 'Bookings', all: true },
+  { id: 'availability', href: '/admin/availability', label: 'My availability', all: true },
+  { id: 'services', href: '/admin/services', label: 'Services', all: false },
+  { id: 'staff', href: '/admin/staff', label: 'Staff', all: false },
+];
+---
+
+<header class="anav">
+  <div class="wrap anav__inner">
+    <div class="anav__brand">
+      <span class="anav__mark">S6</span>
+      <span class="anav__label">Admin{role === 'staff' ? ' · staff' : ''}</span>
+    </div>
+    <nav class="anav__links" aria-label="Admin">
+      {
+        links
+          .filter((l) => l.all || role === 'owner')
+          .map((l) => (
+            <a href={l.href} class:list={['anav__link', { 'is-active': active === l.id }]}>
+              {l.label}
+            </a>
+          ))
+      }
+    </nav>
+    <div class="anav__right">
+      {name && <span class="anav__who">{name}</span>}
+      <a href="/account" class="anav__link">My account</a>
+      <form method="POST" action="/auth/logout"><button type="submit" class="anav__signout">Sign out</button></form>
+    </div>
+  </div>
+</header>
+
+<style>
+  .anav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--espresso);
+    color: var(--porcelain);
+  }
+  .anav__inner {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    height: 4rem;
+    flex-wrap: wrap;
+  }
+  .anav__brand {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .anav__mark {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: var(--rose);
+    font-weight: 600;
+  }
+  .anav__label {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(252, 248, 245, 0.6);
+  }
+  .anav__links {
+    display: flex;
+    gap: 1.2rem;
+    margin-right: auto;
+  }
+  .anav__link {
+    font-size: var(--text-small);
+    color: rgba(252, 248, 245, 0.7);
+    padding: 0.3em 0;
+    border-bottom: 1.5px solid transparent;
+    transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .anav__link:hover,
+  .anav__link.is-active {
+    color: var(--porcelain);
+    border-color: var(--rose);
+  }
+  .anav__right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .anav__who {
+    font-size: var(--text-small);
+    color: rgba(252, 248, 245, 0.6);
+  }
+  .anav__signout {
+    background: none;
+    border: 0;
+    color: rgba(252, 248, 245, 0.7);
+    font-size: var(--text-small);
+    text-decoration: underline;
+  }
+  .anav__signout:hover {
+    color: var(--porcelain);
+  }
+</style>

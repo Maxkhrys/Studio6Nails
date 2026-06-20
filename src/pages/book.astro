@@ -1,0 +1,369 @@
+---
+export const prerender = false;
+
+import Base from '../layouts/Base.astro';
+import { SITE, formatEuro, SERVICE_CATEGORIES } from '../lib/site';
+
+interface ServiceRow {
+  id: string;
+  category: string;
+  name: string;
+  duration_min: number;
+  price_cents: number;
+  deposit_cents: number;
+}
+interface StaffRow {
+  id: string;
+  display_name: string;
+}
+
+let services: ServiceRow[] = [];
+let staff: StaffRow[] = [];
+let staffServices: { staff_id: string; service_id: string }[] = [];
+let configured = false;
+
+const supabase = Astro.locals.supabase;
+if (supabase) {
+  const [svc, stf, ss] = await Promise.all([
+    supabase
+      .from('services')
+      .select('id, category, name, duration_min, price_cents, deposit_cents')
+      .eq('active', true)
+      .order('sort_order'),
+    supabase.from('staff').select('id, display_name').eq('active', true).order('sort_order'),
+    supabase.from('staff_services').select('staff_id, service_id'),
+  ]);
+  services = (svc.data as ServiceRow[]) ?? [];
+  staff = (stf.data as StaffRow[]) ?? [];
+  staffServices = (ss.data as any) ?? [];
+  configured = services.length > 0 && staff.length > 0;
+}
+
+const bookingData = JSON.stringify({ services, staff, staffServices });
+
+// Prefill from the logged-in profile, if any.
+const prefill = {
+  name: Astro.locals.profile?.full_name ?? '',
+  email: Astro.locals.user?.email ?? '',
+  phone: Astro.locals.profile?.phone ?? '',
+};
+const cancelled = Astro.url.searchParams.get('cancelled') === '1';
+---
+
+<Base title="Book an appointment" noindex={true}>
+  <section class="book section">
+    <div class="wrap">
+      <header class="book__head" data-reveal>
+        <p class="eyebrow">Booking</p>
+        <h1>Book an appointment</h1>
+        <p class="lede">Choose a service, your stylist and a time that suits you.</p>
+      </header>
+
+      {cancelled && (
+        <p class="book__notice">Payment was cancelled — your slot wasn’t booked. You can try again below.</p>
+      )}
+
+      {
+        !configured ? (
+          <div class="book__fallback" data-reveal>
+            <p>
+              Online booking is being set up. In the meantime, please call us on
+              <a href={`tel:${SITE.phoneE164}`}>{SITE.phone}</a> or email
+              <a href={`mailto:${SITE.email}`}>{SITE.email}</a> to make an appointment.
+            </p>
+          </div>
+        ) : (
+          <form id="booking" class="book__form" data-reveal>
+            {/* STEP 1 — service */}
+            <fieldset class="step">
+              <legend><span class="step__n">1</span> Choose a service</legend>
+              <div class="services-pick" id="services-pick">
+                {SERVICE_CATEGORIES.map((cat) => {
+                  const inCat = services.filter((s) => s.category === cat.id);
+                  if (inCat.length === 0) return null;
+                  return (
+                    <div class="services-pick__group">
+                      <h3>{cat.label}</h3>
+                      <div class="services-pick__list">
+                        {inCat.map((s) => (
+                          <button
+                            type="button"
+                            class="pick"
+                            data-service={s.id}
+                            data-deposit={s.deposit_cents}
+                            data-price={s.price_cents}
+                            data-duration={s.duration_min}
+                            data-name={s.name}
+                          >
+                            <span class="pick__name">{s.name}</span>
+                            <span class="pick__meta">
+                              {s.duration_min} min · {formatEuro(s.price_cents)}
+                            </span>
+                            <span class="pick__dep">{formatEuro(s.deposit_cents)} deposit</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            {/* STEP 2 — stylist */}
+            <fieldset class="step is-disabled" id="step-staff">
+              <legend><span class="step__n">2</span> Choose your stylist</legend>
+              <div class="staff-pick" id="staff-pick"></div>
+            </fieldset>
+
+            {/* STEP 3 — date + time */}
+            <fieldset class="step is-disabled" id="step-time">
+              <legend><span class="step__n">3</span> Pick a date &amp; time</legend>
+              <div class="field date-field">
+                <label for="date">Date</label>
+                <input type="date" id="date" name="date" />
+              </div>
+              <div class="slots" id="slots" aria-live="polite"></div>
+            </fieldset>
+
+            {/* STEP 4 — details */}
+            <fieldset class="step is-disabled" id="step-details">
+              <legend><span class="step__n">4</span> Your details</legend>
+              <div class="details-grid">
+                <div class="field">
+                  <label for="name">Full name</label>
+                  <input id="name" name="name" type="text" autocomplete="name" value={prefill.name} required />
+                </div>
+                <div class="field">
+                  <label for="email">Email</label>
+                  <input id="email" name="email" type="email" autocomplete="email" value={prefill.email} required />
+                </div>
+                <div class="field">
+                  <label for="phone">Phone</label>
+                  <input id="phone" name="phone" type="tel" autocomplete="tel" value={prefill.phone} />
+                </div>
+                <div class="field field--wide">
+                  <label for="notes">Anything we should know? (optional)</label>
+                  <textarea id="notes" name="notes" rows="3"></textarea>
+                </div>
+              </div>
+
+              <div class="summary" id="summary"></div>
+              <p class="book__error" id="book-error" role="alert" hidden></p>
+              <button class="btn btn--primary" id="submit" type="submit" disabled>
+                Continue to deposit
+              </button>
+              <p class="book__fineprint">
+                A deposit secures your appointment; the balance is paid in studio.
+                {Astro.locals.user ? '' : ' Booking as a guest — '}
+                {!Astro.locals.user && <a href="/auth/login?redirect=/book">sign in</a>}
+                {!Astro.locals.user && ' to manage it later.'}
+              </p>
+            </fieldset>
+          </form>
+        )
+      }
+    </div>
+  </section>
+
+  <script type="application/json" id="booking-data" set:html={bookingData}></script>
+  <script>
+    import '../scripts/booking';
+  </script>
+</Base>
+
+<style>
+  .book {
+    padding-top: calc(var(--nav-height) + 3rem);
+  }
+  .book__head {
+    max-width: 50ch;
+    margin-bottom: 2.5rem;
+  }
+  .book__head h1 {
+    font-size: var(--text-h2);
+    margin: 0.3em 0 0.4em;
+  }
+  .book__notice {
+    background: #fbeceb;
+    border: 1px solid #e7bcb8;
+    color: #8a3b34;
+    padding: 0.9em 1.1em;
+    border-radius: var(--radius);
+    margin-bottom: 2rem;
+  }
+  .book__fallback {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    max-width: 46ch;
+  }
+  .book__fallback a {
+    color: var(--rose-deep);
+    text-decoration: underline;
+  }
+
+  .book__form {
+    display: grid;
+    gap: 1.5rem;
+    max-width: 60rem;
+  }
+  .step {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: clamp(1.4rem, 3vw, 2rem);
+    background: #fff;
+    transition: opacity var(--dur) var(--ease);
+  }
+  .step.is-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+  .step legend {
+    font-family: var(--font-display);
+    font-size: var(--text-h3);
+    padding: 0;
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .step__n {
+    display: grid;
+    place-items: center;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 50%;
+    background: var(--blush);
+    color: var(--rose-deep);
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .services-pick__group + .services-pick__group {
+    margin-top: 1.6rem;
+  }
+  .services-pick__group h3 {
+    font-family: var(--font-body);
+    font-size: var(--text-tiny);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mid);
+    margin-bottom: 0.7rem;
+  }
+  .services-pick__list,
+  .staff-pick {
+    display: grid;
+    gap: 0.7rem;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  }
+  .pick {
+    text-align: left;
+    background: var(--porcelain);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.9em 1em;
+    display: grid;
+    gap: 0.2rem;
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  .pick:hover {
+    border-color: var(--rose);
+  }
+  .pick.is-selected {
+    border-color: var(--rose-deep);
+    background: var(--blush);
+  }
+  .pick__name {
+    font-weight: 600;
+  }
+  .pick__meta {
+    font-size: var(--text-small);
+    color: var(--ink-soft);
+  }
+  .pick__dep {
+    font-size: var(--text-tiny);
+    color: var(--gold-deep);
+  }
+
+  .date-field {
+    max-width: 16rem;
+    margin-bottom: 1.4rem;
+  }
+  .slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .slot {
+    background: var(--porcelain);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.6em 1em;
+    font-size: var(--text-small);
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  .slot:hover {
+    border-color: var(--rose);
+  }
+  .slot.is-selected {
+    border-color: var(--rose-deep);
+    background: var(--blush);
+  }
+  .slots__empty {
+    color: var(--ink-mid);
+    font-size: var(--text-small);
+  }
+
+  .details-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr 1fr;
+  }
+  .field--wide {
+    grid-column: 1 / -1;
+  }
+  @media (max-width: 560px) {
+    .details-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .summary {
+    margin: 1.4rem 0;
+    padding: 1rem 1.2rem;
+    background: var(--porcelain-deep);
+    border-radius: var(--radius);
+    font-size: var(--text-small);
+    line-height: 1.6;
+  }
+  .summary:empty {
+    display: none;
+  }
+  .book__error {
+    background: #fbeceb;
+    border: 1px solid #e7bcb8;
+    color: #8a3b34;
+    padding: 0.7em 1em;
+    border-radius: var(--radius);
+    font-size: var(--text-small);
+    margin-bottom: 1rem;
+  }
+  #submit {
+    justify-content: center;
+  }
+  #submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .book__fineprint {
+    margin-top: 1rem;
+    font-size: var(--text-tiny);
+    color: var(--ink-mid);
+  }
+  .book__fineprint a {
+    color: var(--rose-deep);
+    text-decoration: underline;
+  }
+</style>

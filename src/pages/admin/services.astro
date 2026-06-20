@@ -1,0 +1,147 @@
+---
+export const prerender = false;
+
+import AdminBase from '../../layouts/AdminBase.astro';
+import { SERVICE_CATEGORIES } from '../../lib/site';
+
+const supabase = Astro.locals.supabase!;
+const profile = Astro.locals.profile!;
+
+// Owner-only page.
+if (profile.role !== 'owner') return Astro.redirect('/admin');
+
+let flash: string | null = null;
+
+function toCents(v: FormDataEntryValue | null): number {
+  const n = Math.round(Number(v) * 100);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') || '');
+
+  if (action === 'update') {
+    await supabase
+      .from('services')
+      .update({
+        price_cents: toCents(form.get('price')),
+        deposit_cents: toCents(form.get('deposit')),
+        duration_min: Number(form.get('duration')) || 30,
+        active: form.get('active') === 'on',
+      })
+      .eq('id', String(form.get('id')));
+    flash = 'Service updated.';
+  } else if (action === 'add') {
+    const name = String(form.get('name') || '').trim();
+    const category = String(form.get('category') || '');
+    if (name && category) {
+      await supabase.from('services').insert({
+        name,
+        slug: slugify(name) || `service-${Date.now()}`,
+        category,
+        duration_min: Number(form.get('duration')) || 30,
+        price_cents: toCents(form.get('price')),
+        deposit_cents: toCents(form.get('deposit')),
+        active: true,
+      });
+      flash = 'Service added.';
+    }
+  }
+}
+
+const { data: services } = await supabase
+  .from('services')
+  .select('id, name, category, duration_min, price_cents, deposit_cents, active')
+  .order('sort_order')
+  .order('name');
+
+const euros = (c: number) => (c / 100).toFixed(2);
+---
+
+<AdminBase title="Services" active="services" role="owner" name={profile.full_name}>
+  <h1 class="admin-h1">Services &amp; pricing</h1>
+  {flash && <p class="admin-flash">{flash}</p>}
+
+  <div class="admin-card">
+    <h2>Current services</h2>
+    <p style="color:var(--ink-soft);font-size:var(--text-small);margin-bottom:1.2rem;">
+      Edit price, deposit and duration. Inactive services are hidden from booking.
+    </p>
+    {/* One form per row, declared outside the table; cells bind via the
+        HTML5 `form` attribute (a <form> can't legally live inside <tr>). */}
+    {(services ?? []).map((s: any) => (
+      <form id={`svc-${s.id}`} method="POST" hidden>
+        <input type="hidden" name="action" value="update" />
+        <input type="hidden" name="id" value={s.id} />
+      </form>
+    ))}
+    <div style="overflow-x:auto;">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Service</th><th>Category</th><th>Mins</th>
+            <th>Price €</th><th>Deposit €</th><th>Active</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {(services ?? []).map((s: any) => (
+            <tr>
+              <td>{s.name}</td>
+              <td>{s.category}</td>
+              <td><input class="cell-input" form={`svc-${s.id}`} name="duration" type="number" min="5" step="5" value={s.duration_min} /></td>
+              <td><input class="cell-input" form={`svc-${s.id}`} name="price" type="number" min="0" step="0.01" value={euros(s.price_cents)} /></td>
+              <td><input class="cell-input" form={`svc-${s.id}`} name="deposit" type="number" min="0" step="0.01" value={euros(s.deposit_cents)} /></td>
+              <td><input form={`svc-${s.id}`} name="active" type="checkbox" checked={s.active} /></td>
+              <td><button class="btn btn--primary btn-sm" form={`svc-${s.id}`} type="submit">Save</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="admin-card">
+    <h2>Add a service</h2>
+    <form method="POST" class="admin-form-row">
+      <input type="hidden" name="action" value="add" />
+      <div class="field" style="flex:2 1 12rem;">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" required />
+      </div>
+      <div class="field">
+        <label for="category">Category</label>
+        <select id="category" name="category">
+          {SERVICE_CATEGORIES.map((c) => <option value={c.id}>{c.label}</option>)}
+        </select>
+      </div>
+      <div class="field">
+        <label for="dur">Mins</label>
+        <input id="dur" name="duration" type="number" min="5" step="5" value="30" />
+      </div>
+      <div class="field">
+        <label for="pr">Price €</label>
+        <input id="pr" name="price" type="number" min="0" step="0.01" value="0" />
+      </div>
+      <div class="field">
+        <label for="dep">Deposit €</label>
+        <input id="dep" name="deposit" type="number" min="0" step="0.01" value="0" />
+      </div>
+      <button class="btn btn--primary btn-sm" type="submit">Add</button>
+    </form>
+  </div>
+</AdminBase>
+
+<style>
+  .cell-input {
+    width: 5.5rem;
+    padding: 0.4em 0.5em;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: var(--text-small);
+  }
+</style>

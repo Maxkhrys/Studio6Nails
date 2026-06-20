@@ -1,0 +1,210 @@
+---
+export const prerender = false;
+
+import AdminBase from '../../layouts/AdminBase.astro';
+
+const supabase = Astro.locals.supabase!;
+const profile = Astro.locals.profile!;
+const role = (profile.role === 'owner' ? 'owner' : 'staff') as 'owner' | 'staff';
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Resolve the staff row for the logged-in user.
+const { data: staffRow } = await supabase
+  .from('staff')
+  .select('id, display_name')
+  .eq('profile_id', profile.id)
+  .maybeSingle();
+
+let flash: string | null = null;
+
+if (Astro.request.method === 'POST' && staffRow) {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') || '');
+
+  if (action === 'add_rule') {
+    const weekday = Number(form.get('weekday'));
+    const start = String(form.get('start_time') || '');
+    const end = String(form.get('end_time') || '');
+    if (start && end && end > start) {
+      await supabase.from('availability_rules').insert({
+        staff_id: staffRow.id,
+        weekday,
+        start_time: start,
+        end_time: end,
+      });
+      flash = 'Working hours added.';
+    } else {
+      flash = 'End time must be after start time.';
+    }
+  } else if (action === 'del_rule') {
+    await supabase.from('availability_rules').delete().eq('id', String(form.get('id')));
+    flash = 'Working hours removed.';
+  } else if (action === 'add_exc') {
+    const date = String(form.get('date') || '');
+    if (date) {
+      await supabase.from('availability_exceptions').insert({
+        staff_id: staffRow.id,
+        date,
+        is_closed: true,
+        note: String(form.get('note') || ''),
+      });
+      flash = 'Closure added.';
+    }
+  } else if (action === 'del_exc') {
+    await supabase.from('availability_exceptions').delete().eq('id', String(form.get('id')));
+    flash = 'Closure removed.';
+  }
+}
+
+const { data: rules } = staffRow
+  ? await supabase
+      .from('availability_rules')
+      .select('id, weekday, start_time, end_time')
+      .eq('staff_id', staffRow.id)
+      .order('weekday')
+  : { data: [] };
+
+const todayStr = new Date().toISOString().slice(0, 10);
+const { data: exceptions } = staffRow
+  ? await supabase
+      .from('availability_exceptions')
+      .select('id, date, note')
+      .eq('staff_id', staffRow.id)
+      .gte('date', todayStr)
+      .order('date')
+  : { data: [] };
+
+const hhmm = (t: string) => t.slice(0, 5);
+---
+
+<AdminBase title="Availability" active="availability" role={role} name={profile.full_name}>
+  <h1 class="admin-h1">My availability</h1>
+
+  {flash && <p class="admin-flash">{flash}</p>}
+
+  {
+    !staffRow ? (
+      <div class="admin-card">
+        <p>
+          Your account isn’t linked to a stylist profile yet, so there are no
+          working hours to manage. Ask the owner to add you under
+          <strong> Staff</strong> and link your account.
+        </p>
+      </div>
+    ) : (
+      <>
+        <div class="admin-card">
+          <h2>Weekly working hours</h2>
+          <p style="color:var(--ink-soft);font-size:var(--text-small);margin-bottom:1.2rem;">
+            These define the times clients can book you online. Add a row per
+            block of hours (e.g. split for a lunch break).
+          </p>
+
+          {(rules ?? []).length === 0 ? (
+            <p style="color:var(--ink-mid);margin-bottom:1.2rem;">No working hours set yet.</p>
+          ) : (
+            <table class="admin-table" style="margin-bottom:1.4rem;">
+              <thead>
+                <tr><th>Day</th><th>From</th><th>To</th><th></th></tr>
+              </thead>
+              <tbody>
+                {(rules ?? []).map((r: any) => (
+                  <tr>
+                    <td>{WEEKDAYS[r.weekday]}</td>
+                    <td>{hhmm(r.start_time)}</td>
+                    <td>{hhmm(r.end_time)}</td>
+                    <td>
+                      <form method="POST">
+                        <input type="hidden" name="action" value="del_rule" />
+                        <input type="hidden" name="id" value={r.id} />
+                        <button class="link-btn" type="submit">Remove</button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <form method="POST" class="admin-form-row">
+            <input type="hidden" name="action" value="add_rule" />
+            <div class="field">
+              <label for="weekday">Day</label>
+              <select id="weekday" name="weekday">
+                {WEEKDAYS.map((d, i) => <option value={i}>{d}</option>)}
+              </select>
+            </div>
+            <div class="field">
+              <label for="start_time">From</label>
+              <input id="start_time" name="start_time" type="time" required />
+            </div>
+            <div class="field">
+              <label for="end_time">To</label>
+              <input id="end_time" name="end_time" type="time" required />
+            </div>
+            <button class="btn btn--primary btn-sm" type="submit">Add hours</button>
+          </form>
+        </div>
+
+        <div class="admin-card">
+          <h2>Closures &amp; days off</h2>
+          <p style="color:var(--ink-soft);font-size:var(--text-small);margin-bottom:1.2rem;">
+            Block a specific date (holiday, training, etc.). Clients won’t be
+            able to book you that day.
+          </p>
+
+          {(exceptions ?? []).length === 0 ? (
+            <p style="color:var(--ink-mid);margin-bottom:1.2rem;">No upcoming closures.</p>
+          ) : (
+            <table class="admin-table" style="margin-bottom:1.4rem;">
+              <thead><tr><th>Date</th><th>Note</th><th></th></tr></thead>
+              <tbody>
+                {(exceptions ?? []).map((e: any) => (
+                  <tr>
+                    <td>{e.date}</td>
+                    <td>{e.note || '—'}</td>
+                    <td>
+                      <form method="POST">
+                        <input type="hidden" name="action" value="del_exc" />
+                        <input type="hidden" name="id" value={e.id} />
+                        <button class="link-btn" type="submit">Remove</button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <form method="POST" class="admin-form-row">
+            <input type="hidden" name="action" value="add_exc" />
+            <div class="field">
+              <label for="date">Date</label>
+              <input id="date" name="date" type="date" min={todayStr} required />
+            </div>
+            <div class="field">
+              <label for="note">Note (optional)</label>
+              <input id="note" name="note" type="text" placeholder="Holiday" />
+            </div>
+            <button class="btn btn--primary btn-sm" type="submit">Add closure</button>
+          </form>
+        </div>
+      </>
+    )
+  }
+</AdminBase>
+
+<style>
+  .link-btn {
+    background: none;
+    border: 0;
+    color: var(--ink-mid);
+    text-decoration: underline;
+    font-size: var(--text-small);
+    padding: 0;
+  }
+  .link-btn:hover {
+    color: #8a3b34;
+  }
+</style>

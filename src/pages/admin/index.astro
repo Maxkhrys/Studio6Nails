@@ -1,0 +1,105 @@
+---
+export const prerender = false;
+
+import AdminBase from '../../layouts/AdminBase.astro';
+import { formatEuro } from '../../lib/site';
+
+const supabase = Astro.locals.supabase!;
+const profile = Astro.locals.profile!;
+const role = (profile.role === 'owner' ? 'owner' : 'staff') as 'owner' | 'staff';
+
+const nowIso = new Date().toISOString();
+
+// RLS scopes this automatically: owner → all bookings, staff → their own.
+const { data: bookings } = await supabase
+  .from('bookings')
+  .select('id, starts_at, status, price_cents, deposit_cents, deposit_paid, client_name, client_email, client_phone, service:services(name), staff:staff(display_name)')
+  .gte('starts_at', nowIso)
+  .in('status', ['pending_payment', 'confirmed'])
+  .order('starts_at', { ascending: true })
+  .limit(100);
+
+const fmt = (iso: string) =>
+  new Intl.DateTimeFormat('en-IE', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Dublin',
+  }).format(new Date(iso));
+---
+
+<AdminBase title="Bookings" active="dashboard" role={role} name={profile.full_name}>
+  <h1 class="admin-h1">Upcoming bookings</h1>
+  <p style="color:var(--ink-soft);margin-bottom:1.5rem;">
+    {role === 'owner' ? 'All upcoming appointments across the studio.' : 'Your upcoming appointments.'}
+  </p>
+
+  <div class="admin-card">
+    {
+      (bookings ?? []).length === 0 ? (
+        <p style="color:var(--ink-mid);">No upcoming bookings.</p>
+      ) : (
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Service</th>
+                {role === 'owner' && <th>Stylist</th>}
+                <th>Client</th>
+                <th>Deposit</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(bookings ?? []).map((b: any) => (
+                <tr>
+                  <td>{fmt(b.starts_at)}</td>
+                  <td>{b.service?.name ?? '—'}</td>
+                  {role === 'owner' && <td>{b.staff?.display_name ?? '—'}</td>}
+                  <td>
+                    {b.client_name ?? '—'}
+                    <br />
+                    <span style="color:var(--ink-mid);font-size:var(--text-tiny);">
+                      {b.client_phone || b.client_email}
+                    </span>
+                  </td>
+                  <td>
+                    {formatEuro(b.deposit_cents)}
+                    {b.deposit_paid ? ' ✓' : ' (unpaid)'}
+                  </td>
+                  <td>{b.status === 'pending_payment' ? 'Awaiting deposit' : 'Confirmed'}</td>
+                  <td>
+                    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                      <form method="POST" action="/api/admin/booking-status">
+                        <input type="hidden" name="booking_id" value={b.id} />
+                        <input type="hidden" name="status" value="completed" />
+                        <input type="hidden" name="redirect" value="/admin" />
+                        <button class="btn btn--ghost btn-sm" type="submit">Done</button>
+                      </form>
+                      <form method="POST" action="/api/admin/booking-status">
+                        <input type="hidden" name="booking_id" value={b.id} />
+                        <input type="hidden" name="status" value="no_show" />
+                        <input type="hidden" name="redirect" value="/admin" />
+                        <button class="btn btn--ghost btn-sm" type="submit">No-show</button>
+                      </form>
+                      <form method="POST" action="/api/admin/booking-status" onsubmit="return confirm('Cancel this booking?')">
+                        <input type="hidden" name="booking_id" value={b.id} />
+                        <input type="hidden" name="status" value="cancelled" />
+                        <input type="hidden" name="redirect" value="/admin" />
+                        <button class="btn btn--ghost btn-sm" type="submit">Cancel</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+  </div>
+</AdminBase>

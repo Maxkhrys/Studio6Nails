@@ -1,0 +1,147 @@
+---
+export const prerender = false;
+
+import AdminBase from '../../layouts/AdminBase.astro';
+import { createSupabaseAdmin } from '../../lib/supabase/admin';
+
+const supabase = Astro.locals.supabase!;
+const profile = Astro.locals.profile!;
+if (profile.role !== 'owner') return Astro.redirect('/admin');
+
+let flash: string | null = null;
+let flashError = false;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') || '');
+
+  if (action === 'add') {
+    const name = String(form.get('display_name') || '').trim();
+    if (name) {
+      await supabase.from('staff').insert({ display_name: name, bio: String(form.get('bio') || '') });
+      flash = 'Stylist added.';
+    }
+  } else if (action === 'toggle') {
+    await supabase
+      .from('staff')
+      .update({ active: form.get('active') === 'on' })
+      .eq('id', String(form.get('id')));
+    flash = 'Stylist updated.';
+  } else if (action === 'services') {
+    const staffId = String(form.get('id'));
+    const chosen = form.getAll('service').map(String);
+    await supabase.from('staff_services').delete().eq('staff_id', staffId);
+    if (chosen.length) {
+      await supabase
+        .from('staff_services')
+        .insert(chosen.map((service_id) => ({ staff_id: staffId, service_id })));
+    }
+    flash = 'Services updated for stylist.';
+  } else if (action === 'link') {
+    // Link a login account (by email) so the stylist can manage their own
+    // availability. Uses the service-role client (owner-gated page).
+    const staffId = String(form.get('id'));
+    const email = String(form.get('email') || '').trim().toLowerCase();
+    try {
+      const admin = createSupabaseAdmin();
+      const { data: list } = await admin.auth.admin.listUsers();
+      const user = list?.users.find((u) => u.email?.toLowerCase() === email);
+      if (!user) {
+        flash = 'No account found with that email — ask them to sign up first.';
+        flashError = true;
+      } else {
+        await admin.from('profiles').update({ role: 'staff' }).eq('id', user.id);
+        await admin.from('staff').update({ profile_id: user.id }).eq('id', staffId);
+        flash = 'Account linked — they can now sign in and manage their availability.';
+      }
+    } catch (e) {
+      console.error(e);
+      flash = 'Could not link the account.';
+      flashError = true;
+    }
+  }
+}
+
+const { data: staff } = await supabase
+  .from('staff')
+  .select('id, display_name, bio, active, profile_id')
+  .order('sort_order')
+  .order('display_name');
+
+const { data: services } = await supabase
+  .from('services')
+  .select('id, name')
+  .order('name');
+
+const { data: links } = await supabase.from('staff_services').select('staff_id, service_id');
+const linkSet = new Set((links ?? []).map((l: any) => `${l.staff_id}:${l.service_id}`));
+---
+
+<AdminBase title="Staff" active="staff" role="owner" name={profile.full_name}>
+  <h1 class="admin-h1">Staff</h1>
+  {flash && <p class="admin-flash" style={flashError ? 'background:#fbeceb;border-color:#e7bcb8;color:#8a3b34;' : ''}>{flash}</p>}
+
+  {
+    (staff ?? []).map((m: any) => (
+      <div class="admin-card">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:0.6rem;">
+          <h2 style="margin:0;">{m.display_name}{!m.active && ' (inactive)'}</h2>
+          <span style="font-size:var(--text-tiny);color:var(--ink-mid);">
+            {m.profile_id ? 'Login linked ✓' : 'No login linked'}
+          </span>
+        </div>
+        {m.bio && <p style="color:var(--ink-soft);font-size:var(--text-small);margin:0.4rem 0 1rem;">{m.bio}</p>}
+
+        <form method="POST" style="margin:1rem 0;">
+          <input type="hidden" name="action" value="services" />
+          <input type="hidden" name="id" value={m.id} />
+          <p style="font-size:var(--text-tiny);text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-mid);margin-bottom:0.6rem;">Services offered</p>
+          <div style="display:flex;flex-wrap:wrap;gap:0.6rem 1.2rem;margin-bottom:0.9rem;">
+            {(services ?? []).map((sv: any) => (
+              <label style="display:flex;gap:0.4rem;align-items:center;font-size:var(--text-small);">
+                <input type="checkbox" name="service" value={sv.id} checked={linkSet.has(`${m.id}:${sv.id}`)} />
+                {sv.name}
+              </label>
+            ))}
+          </div>
+          <button class="btn btn--ghost btn-sm" type="submit">Save services</button>
+        </form>
+
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;border-top:1px solid var(--line-soft);padding-top:1rem;">
+          <form method="POST" class="admin-form-row" style="flex:1 1 18rem;">
+            <input type="hidden" name="action" value="link" />
+            <input type="hidden" name="id" value={m.id} />
+            <div class="field" style="flex:1;">
+              <label>Link login by email</label>
+              <input name="email" type="email" placeholder="stylist@email.com" />
+            </div>
+            <button class="btn btn--ghost btn-sm" type="submit">Link</button>
+          </form>
+          <form method="POST" style="display:flex;align-items:center;gap:0.5rem;">
+            <input type="hidden" name="action" value="toggle" />
+            <input type="hidden" name="id" value={m.id} />
+            <label style="font-size:var(--text-small);display:flex;align-items:center;gap:0.4rem;">
+              <input type="checkbox" name="active" checked={m.active} onchange="this.form.submit()" /> Active
+            </label>
+          </form>
+        </div>
+      </div>
+    ))
+  }
+
+  <div class="admin-card">
+    <h2>Add a stylist</h2>
+    <form method="POST" class="admin-form-row">
+      <input type="hidden" name="action" value="add" />
+      <div class="field" style="flex:1 1 12rem;">
+        <label for="display_name">Name</label>
+        <input id="display_name" name="display_name" type="text" required />
+      </div>
+      <div class="field" style="flex:2 1 16rem;">
+        <label for="bio">Short bio (optional)</label>
+        <input id="bio" name="bio" type="text" />
+      </div>
+      <button class="btn btn--primary btn-sm" type="submit">Add stylist</button>
+    </form>
+  </div>
+</AdminBase>

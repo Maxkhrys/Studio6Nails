@@ -1,0 +1,156 @@
+---
+export const prerender = false;
+
+import Base from '../../layouts/Base.astro';
+import { createSupabaseServer } from '../../lib/supabase/server';
+
+if (Astro.locals.user) return Astro.redirect('/account');
+
+const redirectParam = Astro.url.searchParams.get('redirect') || '/account';
+const safeRedirect = redirectParam.startsWith('/') ? redirectParam : '/account';
+
+let error: string | null = null;
+let confirmEmail = false;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const fullName = String(form.get('full_name') || '').trim();
+  const phone = String(form.get('phone') || '').trim();
+  const email = String(form.get('email') || '').trim();
+  const password = String(form.get('password') || '');
+
+  if (!fullName || !email || password.length < 8) {
+    error = 'Please enter your name, email and a password of at least 8 characters.';
+  } else {
+    const supabase = createSupabaseServer(Astro.cookies);
+    const { data, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName, phone },
+        emailRedirectTo: new URL(safeRedirect, Astro.url.origin).href,
+      },
+    });
+    if (authError) {
+      error = authError.message;
+    } else if (data.session) {
+      // Email confirmation disabled — signed in immediately.
+      return Astro.redirect(safeRedirect);
+    } else {
+      // Confirmation required.
+      confirmEmail = true;
+    }
+  }
+}
+---
+
+<Base title="Create an account" noindex={true}>
+  <section class="auth section">
+    <div class="auth__card" data-reveal>
+      {
+        confirmEmail ? (
+          <>
+            <p class="eyebrow">Almost there</p>
+            <h1>Check your email</h1>
+            <p class="auth__sub">
+              We’ve sent a confirmation link. Click it to finish creating your
+              account, then sign in.
+            </p>
+            <a class="btn btn--primary" href="/auth/login">Back to sign in</a>
+          </>
+        ) : (
+          <>
+            <p class="eyebrow">New client</p>
+            <h1>Create an account</h1>
+            <p class="auth__sub">Book and manage your appointments online.</p>
+
+            {error && <p class="auth__error" role="alert">{error}</p>}
+
+            <form method="POST" class="auth__form">
+              <input type="hidden" name="redirect" value={safeRedirect} />
+              <div class="field">
+                <label for="full_name">Full name</label>
+                <input id="full_name" name="full_name" type="text" autocomplete="name" required />
+              </div>
+              <div class="field">
+                <label for="phone">Phone (optional)</label>
+                <input id="phone" name="phone" type="tel" autocomplete="tel" />
+              </div>
+              <div class="field">
+                <label for="email">Email</label>
+                <input id="email" name="email" type="email" autocomplete="email" required />
+              </div>
+              <div class="field">
+                <label for="password">Password</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="8"
+                  required
+                />
+              </div>
+              <button class="btn btn--primary" type="submit">Create account</button>
+            </form>
+
+            <p class="auth__alt">
+              Already have an account? <a href={`/auth/login?redirect=${encodeURIComponent(safeRedirect)}`}>Sign in</a>
+            </p>
+          </>
+        )
+      }
+    </div>
+  </section>
+</Base>
+
+<style>
+  .auth {
+    min-height: 70vh;
+    display: grid;
+    place-items: center;
+    padding-top: calc(var(--nav-height) + 3rem);
+  }
+  .auth__card {
+    width: 100%;
+    max-width: 26rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: clamp(2rem, 4vw, 3rem);
+  }
+  .auth__card h1 {
+    font-size: var(--text-h2);
+    margin: 0.3em 0 0.4em;
+  }
+  .auth__sub {
+    color: var(--ink-soft);
+    margin-bottom: 1.6rem;
+  }
+  .auth__form {
+    display: grid;
+    gap: 1.1rem;
+  }
+  .auth__form .btn {
+    margin-top: 0.5rem;
+    justify-content: center;
+  }
+  .auth__alt {
+    margin-top: 1.4rem;
+    font-size: var(--text-small);
+    color: var(--ink-soft);
+  }
+  .auth__alt a {
+    color: var(--rose-deep);
+    text-decoration: underline;
+  }
+  .auth__error {
+    background: #fbeceb;
+    border: 1px solid #e7bcb8;
+    color: #8a3b34;
+    padding: 0.8em 1em;
+    border-radius: var(--radius);
+    font-size: var(--text-small);
+    margin-bottom: 1.2rem;
+  }
+</style>

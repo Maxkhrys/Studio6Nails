@@ -1,0 +1,226 @@
+---
+export const prerender = false;
+
+import Base from '../../layouts/Base.astro';
+import { formatEuro } from '../../lib/site';
+
+// Middleware guarantees a logged-in user here.
+const supabase = Astro.locals.supabase!;
+const profile = Astro.locals.profile;
+const isStaff = profile?.role === 'staff' || profile?.role === 'owner';
+
+const nowIso = new Date().toISOString();
+
+const { data: upcoming } = await supabase
+  .from('bookings')
+  .select('id, starts_at, status, price_cents, deposit_cents, deposit_paid, service:services(name), staff:staff(display_name)')
+  .gte('starts_at', nowIso)
+  .in('status', ['pending_payment', 'confirmed'])
+  .order('starts_at', { ascending: true });
+
+const { data: history } = await supabase
+  .from('bookings')
+  .select('id, starts_at, status, service:services(name), staff:staff(display_name)')
+  .or(`starts_at.lt.${nowIso},status.in.(cancelled,completed,no_show)`)
+  .order('starts_at', { ascending: false })
+  .limit(20);
+
+const fmt = (iso: string) =>
+  new Intl.DateTimeFormat('en-IE', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Dublin',
+  }).format(new Date(iso));
+
+const statusLabel: Record<string, string> = {
+  pending_payment: 'Awaiting deposit',
+  confirmed: 'Confirmed',
+  cancelled: 'Cancelled',
+  completed: 'Completed',
+  no_show: 'Missed',
+};
+---
+
+<Base title="My account" noindex={true}>
+  <section class="acct section">
+    <div class="wrap">
+      <header class="acct__head" data-reveal>
+        <div>
+          <p class="eyebrow">My account</p>
+          <h1>Hello{profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}</h1>
+        </div>
+        <div class="acct__head-actions">
+          {isStaff && <a class="btn btn--ghost" href="/admin">Admin</a>}
+          <a class="btn btn--primary" href="/book">New booking</a>
+          <form method="POST" action="/auth/logout">
+            <button class="btn btn--ghost" type="submit">Sign out</button>
+          </form>
+        </div>
+      </header>
+
+      <h2 class="acct__h2" data-reveal>Upcoming</h2>
+      {
+        (upcoming ?? []).length === 0 ? (
+          <p class="acct__empty" data-reveal>
+            No upcoming appointments. <a href="/book">Book one →</a>
+          </p>
+        ) : (
+          <ul class="bookings" data-reveal>
+            {(upcoming ?? []).map((b: any) => (
+              <li class="booking">
+                <div class="booking__main">
+                  <p class="booking__service">{b.service?.name ?? 'Appointment'}</p>
+                  <p class="booking__meta">
+                    {fmt(b.starts_at)} · with {b.staff?.display_name ?? '—'}
+                  </p>
+                </div>
+                <div class="booking__side">
+                  <span class={`badge badge--${b.status}`}>{statusLabel[b.status] ?? b.status}</span>
+                  <span class="booking__money">
+                    {b.deposit_paid ? `${formatEuro(b.deposit_cents)} paid` : `${formatEuro(b.deposit_cents)} deposit due`}
+                  </span>
+                  <form method="POST" action="/api/cancel-booking" onsubmit="return confirm('Cancel this appointment?')">
+                    <input type="hidden" name="booking_id" value={b.id} />
+                    <input type="hidden" name="redirect" value="/account" />
+                    <button class="link-btn" type="submit">Cancel</button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+
+      <h2 class="acct__h2" data-reveal>History</h2>
+      {
+        (history ?? []).length === 0 ? (
+          <p class="acct__empty" data-reveal>No past appointments yet.</p>
+        ) : (
+          <ul class="bookings bookings--muted" data-reveal>
+            {(history ?? []).map((b: any) => (
+              <li class="booking">
+                <div class="booking__main">
+                  <p class="booking__service">{b.service?.name ?? 'Appointment'}</p>
+                  <p class="booking__meta">
+                    {fmt(b.starts_at)} · with {b.staff?.display_name ?? '—'}
+                  </p>
+                </div>
+                <span class={`badge badge--${b.status}`}>{statusLabel[b.status] ?? b.status}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </div>
+  </section>
+</Base>
+
+<style>
+  .acct {
+    padding-top: calc(var(--nav-height) + 3rem);
+  }
+  .acct__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 3rem;
+  }
+  .acct__head h1 {
+    font-size: var(--text-h2);
+    margin-top: 0.3em;
+  }
+  .acct__head-actions {
+    display: flex;
+    gap: 0.7rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .acct__head-actions form {
+    margin: 0;
+  }
+  .acct__h2 {
+    font-size: var(--text-h3);
+    margin: 2.5rem 0 1.2rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .acct__empty {
+    color: var(--ink-soft);
+  }
+  .acct__empty a {
+    color: var(--rose-deep);
+    text-decoration: underline;
+  }
+  .bookings {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 0.8rem;
+  }
+  .booking {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 1.1rem 1.4rem;
+  }
+  .bookings--muted .booking {
+    background: var(--porcelain-deep);
+  }
+  .booking__service {
+    font-weight: 600;
+    font-size: 1.05rem;
+  }
+  .booking__meta {
+    font-size: var(--text-small);
+    color: var(--ink-soft);
+  }
+  .booking__side {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .booking__money {
+    font-size: var(--text-small);
+    color: var(--ink-mid);
+  }
+  .badge {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.3em 0.7em;
+    border-radius: 999px;
+    background: var(--blush);
+    color: var(--rose-deep);
+  }
+  .badge--confirmed {
+    background: #e3efe4;
+    color: #3d6b48;
+  }
+  .badge--cancelled,
+  .badge--no_show {
+    background: #f1e3e2;
+    color: #8a3b34;
+  }
+  .link-btn {
+    background: none;
+    border: 0;
+    color: var(--ink-mid);
+    text-decoration: underline;
+    font-size: var(--text-small);
+    padding: 0;
+  }
+  .link-btn:hover {
+    color: #8a3b34;
+  }
+</style>

@@ -1,0 +1,108 @@
+---
+export const prerender = false;
+
+import Base from '../../layouts/Base.astro';
+import { createSupabaseAdmin } from '../../lib/supabase/admin';
+import { SITE, formatEuro } from '../../lib/site';
+
+const bookingId = Astro.url.searchParams.get('b');
+let when: string | null = null;
+let serviceName: string | null = null;
+let deposit = 0;
+
+if (bookingId) {
+  try {
+    const admin = createSupabaseAdmin();
+    const { data } = await admin
+      .from('bookings')
+      .select('starts_at, deposit_cents, service:services(name)')
+      .eq('id', bookingId)
+      .single();
+    if (data) {
+      when = new Intl.DateTimeFormat('en-IE', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/Dublin',
+      }).format(new Date(data.starts_at));
+      serviceName = (data as any).service?.name ?? null;
+      deposit = data.deposit_cents ?? 0;
+    }
+  } catch {
+    /* show generic success */
+  }
+}
+---
+
+<Base title="Booking confirmed" noindex={true}>
+  <section class="done section">
+    <div class="done__card" data-reveal>
+      <div class="done__tick" aria-hidden="true">✓</div>
+      <p class="eyebrow">Thank you</p>
+      <h1>You’re booked in</h1>
+      {
+        serviceName && when ? (
+          <p class="done__detail">
+            <strong>{serviceName}</strong><br />{when}
+            {deposit > 0 && <><br />Deposit paid: {formatEuro(deposit)}</>}
+          </p>
+        ) : (
+          <p class="done__detail">Your appointment is confirmed.</p>
+        )
+      }
+      <p class="done__sub">
+        A confirmation email is on its way. The balance is settled in studio. See
+        you at {SITE.address.street}.
+      </p>
+      <div class="done__actions">
+        <a class="btn btn--primary" href="/account">View my bookings</a>
+        <a class="btn btn--ghost" href="/">Back to home</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .done {
+    min-height: 70vh;
+    display: grid;
+    place-items: center;
+    padding-top: calc(var(--nav-height) + 3rem);
+    text-align: center;
+  }
+  .done__card {
+    max-width: 34rem;
+  }
+  .done__tick {
+    width: 3.4rem;
+    height: 3.4rem;
+    margin: 0 auto 1.4rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--blush);
+    color: var(--rose-deep);
+    font-size: 1.6rem;
+  }
+  .done__card h1 {
+    font-size: var(--text-h2);
+    margin: 0.3em 0 0.6em;
+  }
+  .done__detail {
+    font-size: 1.15rem;
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+  .done__sub {
+    color: var(--ink-soft);
+    margin-bottom: 2rem;
+  }
+  .done__actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+</style>
