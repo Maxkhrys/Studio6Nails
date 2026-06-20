@@ -1,7 +1,14 @@
 ---
 import Base from '../layouts/Base.astro';
 import Placeholder from '../components/Placeholder.astro';
+import StockFigure from '../components/StockFigure.astro';
 import { SITE, SERVICE_CATEGORIES, fullAddress } from '../lib/site';
+
+import heroImg from '../assets/images/hero-hands.jpg';
+import galleryArt from '../assets/images/gallery-nail-art.jpg';
+import galleryProgress from '../assets/images/gallery-in-progress.jpg';
+import galleryInterior from '../assets/images/gallery-interior.jpg';
+import galleryFinished from '../assets/images/gallery-finished.jpg';
 
 const introWords =
   'A calm Kilkenny studio where hands, brows and lashes are cared for with patience, precision and a little artistry.'.split(
@@ -13,10 +20,13 @@ const introWords =
   <!-- ===================== HERO ===================== -->
   <section class="hero" id="top">
     <div class="hero__media">
-      <Placeholder
-        subject="Hero — studio interior / hands close-up (real photo pending)"
+      <StockFigure
+        src={heroImg}
+        alt="Close-up of a hand with elegant black and tortoiseshell gel nails"
         ratio="16/10"
-        tint={2}
+        sizes="100vw"
+        widths={[768, 1200, 1600, 2200]}
+        eager={true}
       />
     </div>
     <div class="hero__scrim" aria-hidden="true"></div>
@@ -83,10 +93,10 @@ const introWords =
       </header>
 
       <div class="gallery__grid">
-        <Placeholder subject="Nail art close-up — hand-painted detail" ratio="4/5" tint={0} parallax={4} class="g1" />
-        <Placeholder subject="Manicure in progress — hands at the table" ratio="1/1" tint={1} class="g2" />
-        <Placeholder subject="Studio interior — chairs & styling" ratio="1/1" tint={3} class="g3" />
-        <Placeholder subject="Finished gel set — colour & shine" ratio="4/5" tint={2} parallax={4} class="g4" />
+        <StockFigure src={galleryArt} alt="Hand-painted red nail art with lettering detail" ratio="4/5" parallax={4} sizes="(max-width: 860px) 50vw, 25vw" class="g1" />
+        <StockFigure src={galleryProgress} alt="A manicure in progress at the studio table" ratio="1/1" sizes="(max-width: 860px) 50vw, 25vw" class="g2" />
+        <StockFigure src={galleryInterior} alt="The studio interior with chairs, mirrors and plants" ratio="1/1" sizes="(max-width: 860px) 50vw, 25vw" class="g3" />
+        <StockFigure src={galleryFinished} alt="A finished gel set with soft neutral colours" ratio="4/5" parallax={4} sizes="(max-width: 860px) 50vw, 25vw" class="g4" />
       </div>
       <p class="gallery__note">
         Images are tasteful placeholders pending the studio's real photography.

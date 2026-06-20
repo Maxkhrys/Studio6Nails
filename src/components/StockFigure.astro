@@ -1,0 +1,57 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+/**
+ * A real (stock placeholder) photo rendered via astro:assets <Image> —
+ * responsive widths, WebP, explicit dimensions (no CLS). Uses the shared
+ * figure[data-media] markup so it gets the same scroll reveal / parallax as
+ * everything else. Carries a small, unobtrusive "Stock photo" badge so it's
+ * never mistaken for Studio 6's own photography.
+ */
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  ratio?: string;
+  parallax?: number | false;
+  sizes?: string;
+  widths?: number[];
+  eager?: boolean;
+  class?: string;
+}
+
+const {
+  src,
+  alt,
+  ratio = '4/5',
+  parallax = false,
+  sizes = '(max-width: 860px) 100vw, 50vw',
+  widths = [480, 768, 1080, 1600],
+  eager = false,
+  class: className = '',
+} = Astro.props;
+---
+
+<figure
+  class:list={['stock', className]}
+  data-media
+  data-parallax={parallax === false ? undefined : String(parallax)}
+  style={`aspect-ratio:${ratio};`}
+>
+  <Image
+    src={src}
+    alt={alt}
+    widths={widths}
+    sizes={sizes}
+    format="webp"
+    loading={eager ? 'eager' : 'lazy'}
+    fetchpriority={eager ? 'high' : 'auto'}
+  />
+  <span class="placeholder-badge">Stock photo</span>
+</figure>
+
+<style>
+  .stock {
+    background: var(--blush);
+  }
+</style>
