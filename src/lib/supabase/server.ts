@@ -17,9 +17,13 @@ export function createSupabaseServer(cookies: AstroCookies) {
   return createServerClient(url, anonKey, {
     cookies: {
       getAll() {
+        // During static prerendering there is no request, so Astro's cookie
+        // API isn't available. Treat that as "no session" instead of throwing.
+        if (typeof cookies.getAll !== 'function') return [];
         return cookies.getAll().map(({ name, value }) => ({ name, value }));
       },
       setAll(cookiesToSet) {
+        if (typeof cookies.set !== 'function') return;
         cookiesToSet.forEach(({ name, value, options }) => {
           cookies.set(name, value, { ...options, path: '/' });
         });
