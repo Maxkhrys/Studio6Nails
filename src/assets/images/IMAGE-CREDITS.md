@@ -14,5 +14,9 @@ photo and the site picks it up automatically.
 | `gallery-interior.jpg` | photo-1633681926022-84c23e8cb2d6 |
 | `gallery-finished.jpg` | photo-1607779097040-26e80aa78e66 |
 
-Still using labelled illustrative placeholders (no suitable stock used):
-the About portrait and the Visit map/exterior — pending real assets.
+The About section now reuses `gallery-in-progress.jpg` (a manicure in
+progress) until a real studio/portrait photo is supplied. The Visit section
+shows a live, interactive OpenStreetMap embed centred on the studio's
+coordinates (`SITE.geo`) instead of a placeholder panel — no API key
+required. Update `SITE.geo` in `src/lib/site.ts` with the exact pin when
+confirmed.

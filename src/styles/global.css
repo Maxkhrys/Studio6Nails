@@ -185,10 +185,18 @@ h4 {
 .btn--primary {
   background: var(--espresso);
   color: var(--porcelain);
+  box-shadow: 0 10px 24px -14px rgba(47, 36, 41, 0.7);
 }
 
 .btn--primary:hover {
   background: var(--rose-deep);
+  box-shadow: 0 14px 30px -14px rgba(160, 111, 108, 0.8);
+}
+
+@media (hover: hover) {
+  .btn--primary:hover {
+    transform: translateY(-1px);
+  }
 }
 
 .btn--ghost {
@@ -246,6 +254,7 @@ figure[data-media] {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-lg);
+  box-shadow: 0 22px 50px -30px rgba(47, 36, 41, 0.5);
   /* Pre-clipped; the reveal animation unclips upward. JS removes this on
      reduced-motion / no-JS via the `.js` gate below. */
 }

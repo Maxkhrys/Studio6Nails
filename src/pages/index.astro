@@ -1,6 +1,5 @@
 ---
 import Base from '../layouts/Base.astro';
-import Placeholder from '../components/Placeholder.astro';
 import StockFigure from '../components/StockFigure.astro';
 import { SITE, SERVICE_CATEGORIES, fullAddress } from '../lib/site';
 
@@ -108,7 +107,13 @@ const introWords =
   <section class="section about" id="about">
     <div class="wrap about__grid">
       <div class="about__media" data-reveal>
-        <Placeholder subject="Sarah / the studio — portrait (real photo pending)" ratio="4/5" tint={0} parallax={5} />
+        <StockFigure
+          src={galleryProgress}
+          alt="A careful manicure in progress at the Studio 6 table"
+          ratio="4/5"
+          parallax={5}
+          sizes="(max-width: 860px) 100vw, 42vw"
+        />
       </div>
       <div class="about__copy" data-reveal>
         <p class="eyebrow">Our studio</p>
@@ -166,7 +171,21 @@ const introWords =
         <a class="btn btn--primary" href="/book">Book an appointment</a>
       </div>
       <div class="visit__map" data-reveal>
-        <Placeholder subject="Map / studio exterior on John's Bridge" ratio="4/5" tint={3} />
+        <iframe
+          class="visit__map-frame"
+          title="Map showing Studio 6 Nails on John's Bridge, Kilkenny"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          src={`https://www.openstreetmap.org/export/embed.html?bbox=${SITE.geo.lng - 0.006}%2C${SITE.geo.lat - 0.003}%2C${SITE.geo.lng + 0.006}%2C${SITE.geo.lat + 0.003}&layer=mapnik&marker=${SITE.geo.lat}%2C${SITE.geo.lng}`}
+        ></iframe>
+        <a
+          class="visit__map-link"
+          href={`https://www.openstreetmap.org/?mlat=${SITE.geo.lat}&mlon=${SITE.geo.lng}#map=17/${SITE.geo.lat}/${SITE.geo.lng}`}
+          target="_blank"
+          rel="noopener"
+        >
+          Open in maps
+        </a>
       </div>
     </div>
   </section>
@@ -192,18 +211,26 @@ const introWords =
     width: 100%;
     height: 100%;
     border-radius: 0;
+    box-shadow: none;
   }
 
   .hero__scrim {
     position: absolute;
     inset: 0;
     z-index: 1;
-    background: linear-gradient(
-      to top,
-      rgba(47, 36, 41, 0.55) 0%,
-      rgba(47, 36, 41, 0.18) 40%,
-      rgba(47, 36, 41, 0.05) 100%
-    );
+    background:
+      linear-gradient(
+        to top,
+        rgba(47, 36, 41, 0.62) 0%,
+        rgba(47, 36, 41, 0.28) 38%,
+        rgba(47, 36, 41, 0.06) 72%,
+        rgba(47, 36, 41, 0.12) 100%
+      ),
+      radial-gradient(
+        120% 80% at 15% 100%,
+        rgba(160, 111, 108, 0.28) 0%,
+        rgba(160, 111, 108, 0) 60%
+      );
   }
 
   .hero__content {
@@ -324,14 +351,36 @@ const introWords =
   }
 
   .service-card {
+    position: relative;
     background: var(--porcelain);
     padding: clamp(1.8rem, 3vw, 2.6rem);
-    transition: background var(--dur) var(--ease);
+    transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
     transition-delay: var(--d, 0s);
+  }
+
+  .service-card::after {
+    content: '';
+    position: absolute;
+    left: clamp(1.8rem, 3vw, 2.6rem);
+    bottom: calc(clamp(1.8rem, 3vw, 2.6rem) - 0.5rem);
+    width: 0;
+    height: 1.5px;
+    background: var(--gold);
+    transition: width var(--dur) var(--ease);
   }
 
   .service-card:hover {
     background: #fff;
+  }
+
+  @media (hover: hover) and (min-width: 980px) {
+    .service-card:hover {
+      transform: translateY(-3px);
+    }
+  }
+
+  .service-card:hover::after {
+    width: 2.5rem;
   }
 
   .service-card__num {
@@ -454,5 +503,48 @@ const introWords =
     gap: 0.15rem;
     font-size: var(--text-small);
     color: var(--ink-soft);
+  }
+
+  .visit__map {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: 0 24px 60px -28px rgba(47, 36, 41, 0.45);
+  }
+
+  .visit__map-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    filter: grayscale(0.18) contrast(1.02);
+  }
+
+  .visit__map-link {
+    position: absolute;
+    right: 0.9rem;
+    bottom: 0.9rem;
+    z-index: 2;
+    padding: 0.55em 1.1em;
+    font-size: var(--text-tiny);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--espresso);
+    background: rgba(252, 248, 245, 0.92);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    backdrop-filter: blur(6px);
+    transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+
+  .visit__map-link:hover {
+    background: var(--espresso);
+    color: var(--porcelain);
+  }
+
+  @media (max-width: 860px) {
+    .visit__map {
+      aspect-ratio: 16 / 11;
+    }
   }
 </style>
