@@ -3,6 +3,7 @@ export const prerender = false;
 
 import Base from '../../layouts/Base.astro';
 import { createSupabaseServer } from '../../lib/supabase/server';
+import { buildWelcomeEmail, sendEmail } from '../../lib/email';
 
 if (Astro.locals.user) return Astro.redirect('/account');
 
@@ -37,7 +38,10 @@ if (Astro.request.method === 'POST') {
     if (authError) {
       error = authError.message;
     } else if (data.session) {
-      // Email confirmation disabled — signed in immediately.
+      // Email confirmation disabled — signed in immediately. Send a welcome
+      // note (best-effort; never blocks the redirect on email delivery).
+      const { subject, html } = buildWelcomeEmail({ to: email, name: fullName });
+      await sendEmail({ to: email, subject, html, bcc: import.meta.env.BOOKING_NOTIFY_EMAIL });
       return Astro.redirect(safeRedirect);
     } else {
       // Confirmation required.

@@ -119,6 +119,40 @@ export function buildVoucherEmail(input: VoucherEmailInput): { subject: string; 
   return { subject, html };
 }
 
+export interface WelcomeEmailInput {
+  to: string;
+  name?: string | null;
+}
+
+/** Sent when a new client account is created (no email confirmation needed). */
+export function buildWelcomeEmail(input: WelcomeEmailInput): { subject: string; html: string } {
+  const subject = `Welcome to Studio 6 Nails`;
+  const greeting = input.name ? `Hi ${escapeHtml(input.name)},` : 'Hello,';
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;background:#fcf8f5;font-family:Helvetica,Arial,sans-serif;color:#2f2429;">
+    <div style="max-width:560px;margin:0 auto;padding:40px 24px;">
+      <p style="margin:0 0 4px;letter-spacing:0.28em;text-transform:uppercase;font-size:11px;color:#a06f6c;">Studio 6 Nails</p>
+      <h1 style="margin:0 0 22px;font-family:Georgia,serif;font-size:28px;font-weight:600;">Your account is ready.</h1>
+      <div style="background:#fff;border:1px solid rgba(47,36,41,0.12);border-radius:12px;padding:26px;">
+        <p style="margin:0 0 18px;font-size:16px;">${greeting}</p>
+        <p style="margin:0 0 18px;font-size:15px;color:#4a3b41;">Thanks for creating an account with Studio 6 Nails. You can now book appointments online, manage or reschedule them, and check out faster next time.</p>
+        <p style="margin:0 0 6px;">
+          <a href="${SITE.url}/book" style="display:inline-block;background:#2f2429;color:#fcf8f5;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;letter-spacing:0.04em;">Book an appointment</a>
+        </p>
+        <p style="margin:18px 0 0;font-size:14px;color:#8a7b80;">If you didn’t create this account, you can safely ignore this email or call ${escapeHtml(SITE.phone)}.</p>
+      </div>
+      <div style="padding:22px 4px;color:#8a7b80;font-size:13px;line-height:1.7;">
+        <p style="margin:0 0 8px;">${escapeHtml(SITE.address.street)}, ${escapeHtml(SITE.address.city)}, ${escapeHtml(SITE.address.postalCode)} · ${escapeHtml(SITE.phone)}</p>
+      </div>
+    </div>
+  </body>
+</html>`;
+
+  return { subject, html };
+}
+
 export async function sendEmail(opts: {
   to: string;
   subject: string;
