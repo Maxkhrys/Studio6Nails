@@ -28,8 +28,13 @@ if (Astro.request.method === 'POST') {
     const supabase = createSupabaseServer(Astro.cookies);
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
     if (authError) {
-      error = 'That email and password didn’t match. Please try again.';
+      error = "That email and password didn’t match. Please try again.";
     } else {
+      // Supabase SSR writes session cookies via an async onAuthStateChange handler.
+      // Calling getUser() forces a network round-trip that drains those async
+      // microtasks before the redirect response is sent, so the cookies arrive
+      // in the browser on the first request to /account.
+      await supabase.auth.getUser();
       return Astro.redirect(safeRedirect);
     }
   }
