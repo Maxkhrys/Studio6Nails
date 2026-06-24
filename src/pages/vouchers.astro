@@ -1,0 +1,218 @@
+---
+export const prerender = false;
+
+import Base from '../layouts/Base.astro';
+import { SITE } from '../lib/site';
+
+const cancelled = Astro.url.searchParams.get('cancelled') === '1';
+const prefillEmail = Astro.locals.user?.email ?? '';
+const presets = [25, 50, 75, 100];
+---
+
+<Base
+  title="Gift vouchers"
+  description="Treat someone to a Studio 6 Nails gift voucher — redeemable against any treatment in our Kilkenny studio."
+>
+  <section class="gv section">
+    <div class="wrap gv__grid">
+      <div class="gv__intro" data-reveal>
+        <p class="eyebrow">Gift vouchers</p>
+        <h1>Give a little luxury</h1>
+        <p class="lede">
+          A Studio 6 Nails gift voucher is the perfect treat — redeemable against any
+          treatment, from a classic manicure to bespoke nail art.
+        </p>
+        <ul class="gv__points">
+          <li>Choose any amount from €10 to €500</li>
+          <li>Sent by email with a unique code</li>
+          <li>Apply it at checkout when booking — any balance stays for next time</li>
+        </ul>
+        <p class="gv__contact">
+          Prefer a physical card? Call us on
+          <a href={`tel:${SITE.phoneE164}`}>{SITE.phone}</a>.
+        </p>
+      </div>
+
+      <form id="gv-form" class="gv__form" data-reveal>
+        {cancelled && (
+          <p class="gv__notice">Payment was cancelled — no voucher was purchased.</p>
+        )}
+
+        <fieldset class="gv__fieldset">
+          <legend>Amount</legend>
+          <div class="gv__amounts" id="gv-amounts">
+            {presets.map((p) => (
+              <button type="button" class="gv__amount" data-amount={p}>€{p}</button>
+            ))}
+          </div>
+          <div class="field gv__custom">
+            <label for="amount">Or enter an amount (€)</label>
+            <input id="amount" name="amount" type="number" min="10" max="500" step="5" inputmode="numeric" placeholder="50" />
+          </div>
+        </fieldset>
+
+        <fieldset class="gv__fieldset">
+          <legend>Who's it for?</legend>
+          <div class="gv__rows">
+            <div class="field">
+              <label for="recipientName">Recipient's name (optional)</label>
+              <input id="recipientName" name="recipientName" type="text" autocomplete="name" />
+            </div>
+            <div class="field">
+              <label for="recipientEmail">Recipient's email (optional)</label>
+              <input id="recipientEmail" name="recipientEmail" type="email" autocomplete="email" />
+              <span class="field__hint">We'll email the voucher here. Leave blank to receive it yourself.</span>
+            </div>
+            <div class="field field--wide">
+              <label for="message">Message (optional)</label>
+              <textarea id="message" name="message" rows="2" maxlength="240"></textarea>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="gv__fieldset">
+          <legend>Your details</legend>
+          <div class="field">
+            <label for="purchaserEmail">Your email</label>
+            <input id="purchaserEmail" name="purchaserEmail" type="email" autocomplete="email" value={prefillEmail} required />
+            <span class="field__hint">For your receipt and a copy of the voucher.</span>
+          </div>
+        </fieldset>
+
+        <p class="gv__error" id="gv-error" role="alert" hidden></p>
+        <button class="btn btn--primary" id="gv-submit" type="submit">Continue to payment</button>
+        <p class="gv__fineprint">Secure payment by card, Apple Pay or Google Pay.</p>
+      </form>
+    </div>
+  </section>
+
+  <script>
+    import '../scripts/vouchers';
+  </script>
+</Base>
+
+<style>
+  .gv {
+    padding-top: calc(var(--nav-height) + 3rem);
+  }
+  .gv__grid {
+    display: grid;
+    gap: clamp(2rem, 5vw, 4rem);
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  @media (min-width: 880px) {
+    .gv__grid {
+      grid-template-columns: 0.9fr 1.1fr;
+    }
+    .gv__intro {
+      position: sticky;
+      top: calc(var(--nav-height) + 2rem);
+    }
+  }
+  .gv__intro h1 {
+    font-size: var(--text-h2);
+    margin: 0.3em 0 0.5em;
+  }
+  .gv__points {
+    list-style: none;
+    padding: 0;
+    margin: 1.6rem 0;
+    display: grid;
+    gap: 0.7rem;
+  }
+  .gv__points li {
+    padding-left: 1.6rem;
+    position: relative;
+    color: var(--ink-soft);
+  }
+  .gv__points li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--gold-deep);
+  }
+  .gv__contact {
+    color: var(--ink-soft);
+    font-size: var(--text-small);
+  }
+  .gv__contact a {
+    color: var(--rose-deep);
+    text-decoration: underline;
+  }
+
+  .gv__form {
+    display: grid;
+    gap: 1.6rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: clamp(1.4rem, 3vw, 2.2rem);
+  }
+  .gv__notice {
+    background: #fbeceb;
+    border: 1px solid #e7bcb8;
+    color: #8a3b34;
+    padding: 0.9em 1.1em;
+    border-radius: var(--radius);
+  }
+  .gv__fieldset {
+    border: 0;
+    padding: 0;
+  }
+  .gv__fieldset legend {
+    font-family: var(--font-display);
+    font-size: var(--text-h3);
+    margin-bottom: 1rem;
+  }
+  .gv__amounts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+  .gv__amount {
+    flex: 1 1 5rem;
+    padding: 0.8em 0.5em;
+    background: var(--porcelain);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: 1.1rem;
+    font-weight: 500;
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  .gv__amount:hover {
+    border-color: var(--rose);
+  }
+  .gv__amount.is-selected {
+    border-color: var(--rose-deep);
+    background: var(--blush);
+  }
+  .gv__custom {
+    max-width: 14rem;
+  }
+  .gv__rows {
+    display: grid;
+    gap: 1rem;
+  }
+  .field__hint {
+    font-size: var(--text-tiny);
+    color: var(--ink-mid);
+  }
+  .gv__error {
+    background: #fbeceb;
+    border: 1px solid #e7bcb8;
+    color: #8a3b34;
+    padding: 0.7em 1em;
+    border-radius: var(--radius);
+    font-size: var(--text-small);
+  }
+  #gv-submit {
+    justify-content: center;
+  }
+  .gv__fineprint {
+    font-size: var(--text-tiny);
+    color: var(--ink-mid);
+    text-align: center;
+  }
+</style>

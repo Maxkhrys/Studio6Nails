@@ -1,6 +1,6 @@
 ---
 interface Props {
-  active: 'dashboard' | 'availability' | 'services' | 'staff';
+  active: 'dashboard' | 'availability' | 'services' | 'staff' | 'vouchers' | 'clients';
   role: 'owner' | 'staff';
   name?: string | null;
 }
@@ -11,6 +11,8 @@ const links = [
   { id: 'availability', href: '/admin/availability', label: 'My availability', all: true },
   { id: 'services', href: '/admin/services', label: 'Services', all: false },
   { id: 'staff', href: '/admin/staff', label: 'Staff', all: false },
+  { id: 'vouchers', href: '/admin/vouchers', label: 'Vouchers', all: false },
+  { id: 'clients', href: '/admin/clients', label: 'Clients', all: false },
 ];
 ---
 

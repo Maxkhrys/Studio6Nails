@@ -37,6 +37,11 @@ if (dataEl && form) {
     price: 0,
     serviceName: '',
     staffName: '',
+    // applied voucher (validated server-side)
+    voucherCode: '',
+    discount: 0,
+    payNow: 0,
+    studio: 0,
   };
 
   const stepStaff = document.getElementById('step-staff')!;
@@ -48,6 +53,20 @@ if (dataEl && form) {
   const summaryEl = document.getElementById('summary')!;
   const submitBtn = document.getElementById('submit') as HTMLButtonElement;
   const errorEl = document.getElementById('book-error') as HTMLElement;
+  const voucherInput = document.getElementById('voucher') as HTMLInputElement | null;
+  const voucherApply = document.getElementById('voucher-apply') as HTMLButtonElement | null;
+  const voucherMsg = document.getElementById('voucher-msg') as HTMLElement | null;
+
+  function clearVoucher() {
+    state.voucherCode = '';
+    state.discount = 0;
+    state.payNow = 0;
+    state.studio = 0;
+    if (voucherMsg) {
+      voucherMsg.hidden = true;
+      voucherMsg.className = 'voucher__msg';
+    }
+  }
 
   // Date input bounds: today … +60 days
   const today = new Date();
@@ -69,9 +88,15 @@ if (dataEl && form) {
         hour: '2-digit',
         minute: '2-digit',
       });
-      summaryEl.innerHTML = `<strong>${state.serviceName}</strong> with ${state.staffName}<br>${when}<br>Deposit now: <strong>${euro(
-        state.deposit,
-      )}</strong> · Balance in studio: ${euro(state.price - state.deposit)}`;
+      const payNow = state.discount > 0 ? state.payNow : state.deposit;
+      const studio = state.discount > 0 ? state.studio : state.price - state.deposit;
+      const discountLine =
+        state.discount > 0 ? `<br><span class="summary__save">Voucher / promo: −${euro(state.discount)}</span>` : '';
+      const payLabel = payNow > 0 ? `Pay now: <strong>${euro(payNow)}</strong>` : `Pay now: <strong>€0</strong>`;
+      summaryEl.innerHTML = `<strong>${state.serviceName}</strong> with ${state.staffName}<br>${when}${discountLine}<br>${payLabel} · Balance in studio: ${euro(
+        studio,
+      )}`;
+      submitBtn.textContent = payNow > 0 ? 'Continue to deposit' : 'Confirm booking';
       submitBtn.disabled = false;
     } else {
       summaryEl.innerHTML = '';
@@ -88,9 +113,10 @@ if (dataEl && form) {
       state.deposit = Number(btn.dataset.deposit);
       state.price = Number(btn.dataset.price);
       state.serviceName = btn.dataset.name!;
-      // reset downstream
+      // reset downstream (a voucher's value depends on the service, so re-apply)
       state.staffId = '';
       state.startsAt = '';
+      clearVoucher();
       slotsEl.innerHTML = '';
       disable(stepTime);
       disable(stepDetails);
@@ -99,6 +125,63 @@ if (dataEl && form) {
       enable(stepStaff);
       stepStaff.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
+  });
+
+  // --- Voucher / promo: validate against the chosen service, show the saving
+  async function applyVoucher() {
+    if (!voucherInput || !voucherMsg) return;
+    const code = voucherInput.value.trim();
+    if (!code) {
+      clearVoucher();
+      updateSummary();
+      return;
+    }
+    if (!state.serviceId) {
+      voucherMsg.hidden = false;
+      voucherMsg.className = 'voucher__msg is-err';
+      voucherMsg.textContent = 'Choose a service first, then apply your code.';
+      return;
+    }
+    voucherMsg.hidden = false;
+    voucherMsg.className = 'voucher__msg';
+    voucherMsg.textContent = 'Checking…';
+    try {
+      const res = await fetch('/api/validate-voucher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, serviceId: state.serviceId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        clearVoucher();
+        voucherMsg.hidden = false;
+        voucherMsg.className = 'voucher__msg is-err';
+        voucherMsg.textContent = data.message || 'That code can’t be used.';
+        updateSummary();
+        return;
+      }
+      state.voucherCode = code;
+      state.discount = data.discountCents;
+      state.payNow = data.payNowCents;
+      state.studio = data.studioCents;
+      voucherMsg.className = 'voucher__msg is-ok';
+      voucherMsg.textContent = `${data.label} ✓`;
+      updateSummary();
+    } catch {
+      clearVoucher();
+      voucherMsg.hidden = false;
+      voucherMsg.className = 'voucher__msg is-err';
+      voucherMsg.textContent = 'Couldn’t check that code — please try again.';
+      updateSummary();
+    }
+  }
+  voucherApply?.addEventListener('click', applyVoucher);
+  voucherInput?.addEventListener('input', () => {
+    // Editing the code invalidates a previous application until re-applied.
+    if (state.voucherCode && voucherInput.value.trim() !== state.voucherCode) {
+      clearVoucher();
+      updateSummary();
+    }
   });
 
   // --- Step 2: stylist (filtered to those who offer the service)
@@ -204,6 +287,7 @@ if (dataEl && form) {
           clientEmail: email,
           clientPhone: phone,
           notes,
+          voucherCode: state.voucherCode,
         }),
       });
       const data = await res.json();
@@ -223,3 +307,5 @@ if (dataEl && form) {
     errorEl.hidden = false;
   }
 }
+
+export {};

@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '../../lib/supabase/admin';
 import { paymentProvider } from '../../lib/payments';
 import { buildBookingConfirmation, sendEmail } from '../../lib/email';
 import { computeDaySlots } from '../../lib/availability';
+import { resolveVoucher, isVoucherError, recordRedemption } from '../../lib/vouchers';
 
 export const prerender = false;
 
@@ -32,6 +33,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   const clientEmail = clip(payload.clientEmail, 160);
   const clientPhone = clip(payload.clientPhone, 40);
   const notes = clip(payload.notes, 480);
+  const voucherCode = clip(payload.voucherCode, 32);
 
   const startsAt = new Date(startsAtRaw);
   if (!serviceId || !staffId || Number.isNaN(startsAt.getTime())) {
@@ -113,6 +115,29 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     return json({ ok: false, message: 'Sorry, that time was just taken. Please pick another.' }, 409);
   }
 
+  // --- Resolve a voucher / promo code, if supplied. Priced server-side
+  //     against the service total; the discount reduces what's owed overall,
+  //     taken first off the online payment (deposit), then the studio balance.
+  let discountCents = 0;
+  let voucherId: string | null = null;
+  if (voucherCode) {
+    const priced = await resolveVoucher(
+      admin,
+      voucherCode,
+      service.price_cents,
+      service.deposit_cents,
+    );
+    if (isVoucherError(priced)) {
+      return json({ ok: false, message: priced.error }, 400);
+    }
+    discountCents = priced.discountCents;
+    voucherId = priced.voucher.id;
+  }
+
+  // What the client pays online now, never more than the remaining total.
+  const totalDue = Math.max(0, service.price_cents - discountCents);
+  const payNowCents = Math.max(0, Math.min(service.deposit_cents, totalDue));
+
   const endsAt = new Date(startsAt.getTime() + service.duration_min * 60_000);
   const userId = locals.user?.id ?? null;
 
@@ -128,6 +153,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       status: 'pending_payment',
       price_cents: service.price_cents,
       deposit_cents: service.deposit_cents,
+      discount_cents: discountCents,
+      voucher_id: voucherId,
       payment_provider: paymentProvider.id,
       client_name: clientName,
       client_email: clientEmail,
@@ -146,9 +173,17 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     return json({ ok: false, message: 'We couldn’t create that booking. Please try again.' }, 500);
   }
 
-  // --- No deposit required: confirm immediately + email.
-  if (service.deposit_cents <= 0) {
+  // --- Nothing to pay online (no deposit, or a voucher covers it): confirm
+  //     immediately, bank any voucher redemption, and email.
+  if (payNowCents <= 0) {
     await admin.from('bookings').update({ status: 'confirmed' }).eq('id', booking.id);
+    if (voucherId && discountCents > 0) {
+      try {
+        await recordRedemption(admin, voucherId, booking.id, discountCents);
+      } catch (e) {
+        console.error('Voucher redemption failed', e);
+      }
+    }
     const { subject, html } = buildBookingConfirmation({
       to: clientEmail,
       clientName,
@@ -157,16 +192,18 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       startsAt,
       priceCents: service.price_cents,
       depositCents: 0,
+      discountCents,
     });
     await sendEmail({ to: clientEmail, subject, html, bcc: import.meta.env.BOOKING_NOTIFY_EMAIL });
     return json({ ok: true, url: `/book/success?b=${booking.id}` });
   }
 
-  // --- Deposit required: hand off to the payment provider.
+  // --- Payment required: hand off to the payment provider. The voucher
+  //     redemption is banked by the webhook once payment confirms.
   try {
     const checkout = await paymentProvider.createDepositCheckout({
       bookingId: booking.id,
-      amountCents: service.deposit_cents,
+      amountCents: payNowCents,
       description: `Deposit — ${service.name}`,
       customerEmail: clientEmail,
       successUrl: `${url.origin}/book/success?b=${booking.id}`,

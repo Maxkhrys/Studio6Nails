@@ -2,8 +2,9 @@ import Stripe from 'stripe';
 import type {
   PaymentProvider,
   DepositCheckoutInput,
+  VoucherCheckoutInput,
   CheckoutResult,
-  PaymentConfirmation,
+  CheckoutConfirmation,
 } from './types';
 
 /* ---------------------------------------------------------------------------
@@ -42,8 +43,37 @@ export const stripeProvider: PaymentProvider = {
       customer_email: input.customerEmail,
       // The booking id is the source of truth for the webhook.
       client_reference_id: input.bookingId,
-      metadata: { booking_id: input.bookingId },
-      payment_intent_data: { metadata: { booking_id: input.bookingId } },
+      metadata: { kind: 'booking', booking_id: input.bookingId },
+      payment_intent_data: { metadata: { kind: 'booking', booking_id: input.bookingId } },
+      success_url: input.successUrl,
+      cancel_url: input.cancelUrl,
+    });
+
+    if (!session.url) throw new Error('Stripe did not return a checkout URL');
+    return { url: session.url, reference: session.id };
+  },
+
+  async createVoucherCheckout(input: VoucherCheckoutInput): Promise<CheckoutResult> {
+    const stripe = client();
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: 'eur',
+            unit_amount: input.amountCents,
+            product_data: {
+              name: input.description,
+              description: 'Studio 6 Nails — gift voucher',
+            },
+          },
+        },
+      ],
+      customer_email: input.customerEmail,
+      client_reference_id: input.voucherId,
+      metadata: { kind: 'voucher', voucher_id: input.voucherId },
+      payment_intent_data: { metadata: { kind: 'voucher', voucher_id: input.voucherId } },
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
     });
@@ -55,7 +85,7 @@ export const stripeProvider: PaymentProvider = {
   async parseWebhook(
     rawBody: string,
     signature: string | null,
-  ): Promise<PaymentConfirmation | null> {
+  ): Promise<CheckoutConfirmation | null> {
     const webhookSecret = import.meta.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) throw new Error('STRIPE_WEBHOOK_SECRET is not set');
     if (!signature) throw new Error('Missing stripe-signature header');
@@ -66,15 +96,21 @@ export const stripeProvider: PaymentProvider = {
     if (event.type !== 'checkout.session.completed') return null;
 
     const session = event.data.object as Stripe.Checkout.Session;
-    const bookingId = session.client_reference_id ?? session.metadata?.booking_id;
-    if (!bookingId) return null;
+    const reference =
+      typeof session.payment_intent === 'string' ? session.payment_intent : session.id;
+    const paid = session.payment_status === 'paid';
+    const amountCents = session.amount_total ?? 0;
 
-    return {
-      bookingId,
-      reference:
-        typeof session.payment_intent === 'string' ? session.payment_intent : session.id,
-      amountCents: session.amount_total ?? 0,
-      paid: session.payment_status === 'paid',
-    };
+    // Gift-voucher purchase?
+    if (session.metadata?.kind === 'voucher' || session.metadata?.voucher_id) {
+      const refId = session.metadata?.voucher_id ?? session.client_reference_id;
+      if (!refId) return null;
+      return { kind: 'voucher', refId, reference, amountCents, paid };
+    }
+
+    // Otherwise treat as a booking deposit (default; back-compatible).
+    const refId = session.client_reference_id ?? session.metadata?.booking_id;
+    if (!refId) return null;
+    return { kind: 'booking', refId, reference, amountCents, paid };
   },
 };

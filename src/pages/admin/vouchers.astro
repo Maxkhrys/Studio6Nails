@@ -1,0 +1,259 @@
+---
+export const prerender = false;
+
+import AdminBase from '../../layouts/AdminBase.astro';
+import { createSupabaseAdmin } from '../../lib/supabase/admin';
+import { generateUniqueCode, normalizeCode } from '../../lib/vouchers';
+import { formatEuro } from '../../lib/site';
+
+const profile = Astro.locals.profile!;
+if (profile.role !== 'owner') return Astro.redirect('/admin');
+
+const admin = createSupabaseAdmin();
+let flash: string | null = null;
+let flashError = false;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') || '');
+
+  try {
+    if (action === 'create_promo') {
+      const type = String(form.get('discount_type') || 'fixed');
+      const rawValue = Number(form.get('discount_value'));
+      const value = type === 'percent' ? Math.round(rawValue) : Math.round(rawValue * 100);
+      const custom = normalizeCode(String(form.get('code') || ''));
+      const maxRaw = Number(form.get('max_redemptions'));
+      const expires = String(form.get('expires_at') || '');
+
+      if (type === 'percent' && (value < 1 || value > 100)) {
+        flash = 'Percentage must be between 1 and 100.';
+        flashError = true;
+      } else if (type === 'fixed' && value < 1) {
+        flash = 'Enter a discount amount.';
+        flashError = true;
+      } else {
+        const code = custom || (await generateUniqueCode(admin, 'promo'));
+        const { error } = await admin.from('vouchers').insert({
+          code,
+          kind: 'promo',
+          discount_type: type,
+          discount_value: value,
+          max_redemptions: Number.isFinite(maxRaw) && maxRaw > 0 ? Math.round(maxRaw) : null,
+          expires_at: expires ? new Date(expires).toISOString() : null,
+          paid: true,
+          active: true,
+        });
+        flash = error ? `Couldn’t create code: ${error.message}` : `Promo code created: ${code}`;
+        flashError = !!error;
+      }
+    } else if (action === 'create_gift') {
+      const euros = Math.round(Number(form.get('amount')));
+      const amountCents = euros * 100;
+      if (!Number.isFinite(amountCents) || amountCents < 100) {
+        flash = 'Enter a gift amount of at least €1.';
+        flashError = true;
+      } else {
+        const code = await generateUniqueCode(admin, 'gift');
+        const { error } = await admin.from('vouchers').insert({
+          code,
+          kind: 'gift',
+          initial_cents: amountCents,
+          balance_cents: amountCents,
+          recipient_email: String(form.get('recipient_email') || '') || null,
+          recipient_name: String(form.get('recipient_name') || '') || null,
+          note: String(form.get('note') || '') || null,
+          paid: true, // manually issued (e.g. paid in cash) → usable now
+          active: true,
+        });
+        flash = error ? `Couldn’t issue voucher: ${error.message}` : `Gift voucher issued: ${code}`;
+        flashError = !!error;
+      }
+    } else if (action === 'toggle') {
+      const id = String(form.get('id'));
+      const active = form.get('active') === 'true';
+      await admin.from('vouchers').update({ active }).eq('id', id);
+      flash = active ? 'Code reactivated.' : 'Code deactivated.';
+    }
+  } catch (e: any) {
+    flash = e?.message || 'Something went wrong.';
+    flashError = true;
+  }
+}
+
+const { data: vouchers } = await admin
+  .from('vouchers')
+  .select(
+    'id, code, kind, discount_type, discount_value, max_redemptions, times_redeemed, initial_cents, balance_cents, paid, active, expires_at, recipient_email, created_at',
+  )
+  .order('created_at', { ascending: false })
+  .limit(200);
+
+const promos = (vouchers ?? []).filter((v: any) => v.kind === 'promo');
+const gifts = (vouchers ?? []).filter((v: any) => v.kind === 'gift');
+
+const valueLabel = (v: any) =>
+  v.kind === 'gift'
+    ? `${formatEuro(v.balance_cents ?? 0)} left of ${formatEuro(v.initial_cents ?? 0)}`
+    : v.discount_type === 'percent'
+      ? `${v.discount_value}% off`
+      : `${formatEuro(v.discount_value ?? 0)} off`;
+
+const statusLabel = (v: any) => {
+  if (!v.active) return 'Inactive';
+  if (!v.paid) return 'Awaiting payment';
+  if (v.expires_at && new Date(v.expires_at).getTime() < Date.now()) return 'Expired';
+  if (v.kind === 'gift' && (v.balance_cents ?? 0) <= 0) return 'Used up';
+  if (v.kind === 'promo' && v.max_redemptions && v.times_redeemed >= v.max_redemptions)
+    return 'Fully redeemed';
+  return 'Active';
+};
+---
+
+<AdminBase title="Vouchers" active="vouchers" role="owner" name={profile.full_name}>
+  <h1 class="admin-h1">Vouchers &amp; promo codes</h1>
+  {flash && <p class="admin-flash" style={flashError ? 'background:#fbeceb;border-color:#e7bcb8;color:#8a3b34;' : ''}>{flash}</p>}
+
+  <div style="display:grid;gap:1.5rem;grid-template-columns:1fr;">
+    <div class="admin-card">
+      <h2>New promo code</h2>
+      <p style="color:var(--ink-soft);font-size:var(--text-small);margin:0 0 1rem;">
+        A discount applied at booking. Leave the code blank to auto-generate one.
+      </p>
+      <form method="POST" class="admin-form-row">
+        <input type="hidden" name="action" value="create_promo" />
+        <div class="field" style="flex:1 1 9rem;">
+          <label for="discount_type">Type</label>
+          <select id="discount_type" name="discount_type">
+            <option value="fixed">€ off</option>
+            <option value="percent">% off</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1 1 8rem;">
+          <label for="discount_value">Value</label>
+          <input id="discount_value" name="discount_value" type="number" min="1" step="1" required />
+        </div>
+        <div class="field" style="flex:1 1 10rem;">
+          <label for="code">Code (optional)</label>
+          <input id="code" name="code" type="text" placeholder="AUTO" />
+        </div>
+        <div class="field" style="flex:1 1 8rem;">
+          <label for="max_redemptions">Max uses</label>
+          <input id="max_redemptions" name="max_redemptions" type="number" min="1" step="1" placeholder="∞" />
+        </div>
+        <div class="field" style="flex:1 1 10rem;">
+          <label for="expires_at">Expires (optional)</label>
+          <input id="expires_at" name="expires_at" type="date" />
+        </div>
+        <button class="btn btn--primary btn-sm" type="submit">Create</button>
+      </form>
+    </div>
+
+    <div class="admin-card">
+      <h2>Issue a gift voucher manually</h2>
+      <p style="color:var(--ink-soft);font-size:var(--text-small);margin:0 0 1rem;">
+        For vouchers bought in person. Customers can also buy online at
+        <a href="/vouchers" style="color:var(--rose-deep);text-decoration:underline;">/vouchers</a>.
+      </p>
+      <form method="POST" class="admin-form-row">
+        <input type="hidden" name="action" value="create_gift" />
+        <div class="field" style="flex:1 1 7rem;">
+          <label for="amount">Amount (€)</label>
+          <input id="amount" name="amount" type="number" min="1" step="5" required />
+        </div>
+        <div class="field" style="flex:1 1 10rem;">
+          <label for="recipient_name">Recipient (optional)</label>
+          <input id="recipient_name" name="recipient_name" type="text" />
+        </div>
+        <div class="field" style="flex:1 1 12rem;">
+          <label for="recipient_email">Their email (optional)</label>
+          <input id="recipient_email" name="recipient_email" type="email" />
+        </div>
+        <button class="btn btn--primary btn-sm" type="submit">Issue</button>
+      </form>
+    </div>
+  </div>
+
+  <h2 class="admin-h1" style="font-size:var(--text-h3);margin:2rem 0 1rem;">Promo codes</h2>
+  <div class="admin-card">
+    {
+      promos.length === 0 ? (
+        <p style="color:var(--ink-mid);">No promo codes yet.</p>
+      ) : (
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead><tr><th>Code</th><th>Discount</th><th>Used</th><th>Expires</th><th>Status</th><th /></tr></thead>
+            <tbody>
+              {promos.map((v: any) => (
+                <tr>
+                  <td style="font-family:var(--font-display);font-size:1.1rem;">{v.code}</td>
+                  <td>{valueLabel(v)}</td>
+                  <td>{v.times_redeemed}{v.max_redemptions ? ` / ${v.max_redemptions}` : ''}</td>
+                  <td>{v.expires_at ? v.expires_at.slice(0, 10) : '—'}</td>
+                  <td>{statusLabel(v)}</td>
+                  <td>
+                    <form method="POST">
+                      <input type="hidden" name="action" value="toggle" />
+                      <input type="hidden" name="id" value={v.id} />
+                      <input type="hidden" name="active" value={v.active ? 'false' : 'true'} />
+                      <button class="link-btn" type="submit">{v.active ? 'Deactivate' : 'Reactivate'}</button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+  </div>
+
+  <h2 class="admin-h1" style="font-size:var(--text-h3);margin:2rem 0 1rem;">Gift vouchers</h2>
+  <div class="admin-card">
+    {
+      gifts.length === 0 ? (
+        <p style="color:var(--ink-mid);">No gift vouchers yet.</p>
+      ) : (
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead><tr><th>Code</th><th>Balance</th><th>Recipient</th><th>Issued</th><th>Status</th><th /></tr></thead>
+            <tbody>
+              {gifts.map((v: any) => (
+                <tr>
+                  <td style="font-family:var(--font-display);font-size:1.1rem;">{v.code}</td>
+                  <td>{valueLabel(v)}</td>
+                  <td>{v.recipient_email || '—'}</td>
+                  <td>{v.created_at ? v.created_at.slice(0, 10) : '—'}</td>
+                  <td>{statusLabel(v)}</td>
+                  <td>
+                    <form method="POST">
+                      <input type="hidden" name="action" value="toggle" />
+                      <input type="hidden" name="id" value={v.id} />
+                      <input type="hidden" name="active" value={v.active ? 'false' : 'true'} />
+                      <button class="link-btn" type="submit">{v.active ? 'Void' : 'Restore'}</button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+  </div>
+</AdminBase>
+
+<style>
+  .link-btn {
+    background: none;
+    border: 0;
+    color: var(--ink-mid);
+    text-decoration: underline;
+    font-size: var(--text-small);
+    padding: 0;
+    cursor: pointer;
+  }
+  .link-btn:hover {
+    color: #8a3b34;
+  }
+</style>

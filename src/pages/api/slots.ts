@@ -30,6 +30,8 @@ export const GET: APIRoute = async ({ url }) => {
   const staffId = url.searchParams.get('staff');
   const serviceId = url.searchParams.get('service');
   const date = url.searchParams.get('date');
+  // When rescheduling, exclude the booking being moved from the busy set.
+  const excludeId = url.searchParams.get('exclude');
 
   if (!staffId || !serviceId || !date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return json({ ok: false, message: 'Missing or invalid parameters.' }, 400);
@@ -75,13 +77,15 @@ export const GET: APIRoute = async ({ url }) => {
   // Bookings that still hold a slot, on this day.
   const dayStart = new Date(`${date}T00:00:00`);
   const dayEnd = new Date(`${date}T23:59:59`);
-  const { data: bookings } = await admin
+  let bookingsQuery = admin
     .from('bookings')
     .select('starts_at, ends_at')
     .eq('staff_id', staffId)
     .in('status', ['pending_payment', 'confirmed'])
     .gte('starts_at', dayStart.toISOString())
     .lte('starts_at', dayEnd.toISOString());
+  if (excludeId) bookingsQuery = bookingsQuery.neq('id', excludeId);
+  const { data: bookings } = await bookingsQuery;
 
   const slots = computeDaySlots(
     date,

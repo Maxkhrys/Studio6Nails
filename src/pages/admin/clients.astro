@@ -1,0 +1,67 @@
+---
+export const prerender = false;
+
+import AdminBase from '../../layouts/AdminBase.astro';
+import { createSupabaseAdmin } from '../../lib/supabase/admin';
+import { buildClientRows } from '../../lib/clients';
+
+const profile = Astro.locals.profile!;
+if (profile.role !== 'owner') return Astro.redirect('/admin');
+
+let rows: Awaited<ReturnType<typeof buildClientRows>> = [];
+let error = false;
+try {
+  rows = await buildClientRows(createSupabaseAdmin());
+} catch (e) {
+  console.error(e);
+  error = true;
+}
+---
+
+<AdminBase title="Clients" active="clients" role="owner" name={profile.full_name}>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+    <h1 class="admin-h1" style="margin:0;">Clients</h1>
+    <a class="btn btn--primary btn-sm" href="/api/admin/clients-export">Export CSV</a>
+  </div>
+  <p style="color:var(--ink-soft);margin:0.6rem 0 1.5rem;">
+    {rows.length} {rows.length === 1 ? 'client' : 'clients'} — registered accounts and guest
+    bookers combined. Export to move them into another system or keep a backup.
+  </p>
+
+  {error && <p class="admin-flash" style="background:#fbeceb;border-color:#e7bcb8;color:#8a3b34;">Couldn’t load clients. Check the service-role key is configured.</p>}
+
+  <div class="admin-card">
+    {
+      rows.length === 0 ? (
+        <p style="color:var(--ink-mid);">No clients yet.</p>
+      ) : (
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Role</th>
+                <th>Bookings</th>
+                <th>Last visit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr>
+                  <td>{r.name || '—'}</td>
+                  <td>{r.email || '—'}</td>
+                  <td>{r.phone || '—'}</td>
+                  <td>{r.role}</td>
+                  <td>{r.bookings}</td>
+                  <td>{r.lastVisit || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+  </div>
+</AdminBase>

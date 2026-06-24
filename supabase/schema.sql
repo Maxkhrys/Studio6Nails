@@ -252,3 +252,10 @@ drop policy if exists bookings_client_cancel on bookings;
 create policy bookings_client_cancel on bookings for update
   using (client_id = auth.uid() or staff_id = my_staff_id() or is_owner())
   with check (client_id = auth.uid() or staff_id = my_staff_id() or is_owner());
+
+-- ===========================================================================
+-- Feature add-ons (vouchers + reschedule) live in vouchers_reschedule.sql.
+-- Run that file after this one on the same project. It is idempotent and adds:
+--   * bookings.discount_cents / voucher_id / rescheduled_count
+--   * vouchers + voucher_redemptions tables (with RLS)
+-- ===========================================================================

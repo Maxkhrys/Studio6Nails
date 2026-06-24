@@ -1,0 +1,188 @@
+---
+export const prerender = false;
+
+import Base from '../../layouts/Base.astro';
+
+// Middleware guarantees a logged-in user. RLS guarantees this query only
+// returns a booking the user is allowed to see.
+const supabase = Astro.locals.supabase!;
+const bookingId = Astro.url.searchParams.get('b') ?? '';
+
+let booking: any = null;
+if (bookingId) {
+  const { data } = await supabase
+    .from('bookings')
+    .select('id, starts_at, status, staff_id, service_id, service:services(name, duration_min), staff:staff(display_name)')
+    .eq('id', bookingId)
+    .maybeSingle();
+  booking = data;
+}
+
+if (!booking) return Astro.redirect('/account');
+
+const CUTOFF_MS = 24 * 60 * 60 * 1000;
+const reschedulable =
+  ['pending_payment', 'confirmed'].includes(booking.status) &&
+  new Date(booking.starts_at).getTime() - Date.now() > CUTOFF_MS;
+
+const fmt = (iso: string) =>
+  new Intl.DateTimeFormat('en-IE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Dublin',
+  }).format(new Date(iso));
+
+const data = JSON.stringify({
+  bookingId: booking.id,
+  staffId: booking.staff_id,
+  serviceId: booking.service_id,
+});
+---
+
+<Base title="Change your appointment" noindex={true}>
+  <section class="rs section">
+    <div class="wrap">
+      <header class="rs__head" data-reveal>
+        <p class="eyebrow">Reschedule</p>
+        <h1>Change your appointment</h1>
+      </header>
+
+      <div class="rs__current" data-reveal>
+        <p class="rs__label">Current appointment</p>
+        <p class="rs__detail">
+          <strong>{booking.service?.name ?? 'Appointment'}</strong> with {booking.staff?.display_name ?? '—'}<br />
+          {fmt(booking.starts_at)}
+        </p>
+      </div>
+
+      {
+        !reschedulable ? (
+          <div class="rs__notice" data-reveal>
+            <p>
+              This appointment is within 24 hours (or can no longer be changed online).
+              Please call us on the number in your confirmation email and we’ll be happy to help.
+            </p>
+            <a class="btn btn--ghost" href="/account">Back to my account</a>
+          </div>
+        ) : (
+          <div class="rs__picker" data-reveal>
+            <p class="rs__hint">
+              Same service and stylist — just choose a new date and time. Your paid
+              deposit moves across; there’s nothing more to pay now.
+            </p>
+            <div class="field date-field">
+              <label for="date">New date</label>
+              <input type="date" id="date" name="date" />
+            </div>
+            <div class="slots" id="slots" aria-live="polite"></div>
+            <p class="rs__error" id="rs-error" role="alert" hidden></p>
+            <div class="rs__actions">
+              <button class="btn btn--primary" id="confirm" type="button" disabled>
+                Confirm new time
+              </button>
+              <a class="btn btn--ghost" href="/account">Cancel</a>
+            </div>
+          </div>
+        )
+      }
+    </div>
+  </section>
+
+  <script type="application/json" id="rs-data" set:html={data}></script>
+  <script>
+    import '../../scripts/reschedule';
+  </script>
+</Base>
+
+<style>
+  .rs {
+    padding-top: calc(var(--nav-height) + 3rem);
+  }
+  .rs__head {
+    margin-bottom: 2rem;
+  }
+  .rs__head h1 {
+    font-size: var(--text-h2);
+    margin-top: 0.3em;
+  }
+  .rs__current {
+    background: var(--blush);
+    border-radius: var(--radius-lg);
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 2rem;
+  }
+  .rs__label {
+    font-size: var(--text-tiny);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--rose-deep);
+    margin-bottom: 0.4rem;
+  }
+  .rs__detail {
+    line-height: 1.6;
+  }
+  .rs__notice,
+  .rs__picker {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: clamp(1.4rem, 3vw, 2rem);
+    max-width: 48rem;
+  }
+  .rs__hint,
+  .rs__notice p {
+    color: var(--ink-soft);
+    margin-bottom: 1.4rem;
+  }
+  .date-field {
+    max-width: 16rem;
+    margin-bottom: 1.4rem;
+  }
+  .slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 1rem;
+  }
+  .slot {
+    background: var(--porcelain);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.6em 1em;
+    font-size: var(--text-small);
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  .slot:hover {
+    border-color: var(--rose);
+  }
+  .slot.is-selected {
+    border-color: var(--rose-deep);
+    background: var(--blush);
+  }
+  .slots__empty {
+    color: var(--ink-mid);
+    font-size: var(--text-small);
+  }
+  .rs__error {
+    background: #fbeceb;
+    border: 1px solid #e7bcb8;
+    color: #8a3b34;
+    padding: 0.7em 1em;
+    border-radius: var(--radius);
+    font-size: var(--text-small);
+    margin: 1.2rem 0;
+  }
+  .rs__actions {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-top: 1.6rem;
+  }
+  #confirm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+</style>

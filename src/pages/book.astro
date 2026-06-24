@@ -147,6 +147,15 @@ const cancelled = Astro.url.searchParams.get('cancelled') === '1';
                 </div>
               </div>
 
+              <div class="voucher">
+                <label for="voucher">Gift voucher or promo code (optional)</label>
+                <div class="voucher__row">
+                  <input id="voucher" name="voucher" type="text" autocomplete="off" placeholder="e.g. S6-GIFT-XXXX-XXXX" />
+                  <button type="button" class="btn btn--ghost" id="voucher-apply">Apply</button>
+                </div>
+                <p class="voucher__msg" id="voucher-msg" hidden></p>
+              </div>
+
               <div class="summary" id="summary"></div>
               <p class="book__error" id="book-error" role="alert" hidden></p>
               <button class="btn btn--primary" id="submit" type="submit" disabled>
@@ -330,6 +339,52 @@ const cancelled = Astro.url.searchParams.get('cancelled') === '1';
     }
   }
 
+  .voucher {
+    margin-top: 1.4rem;
+  }
+  .voucher > label {
+    display: block;
+    font-size: var(--text-tiny);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-mid);
+    margin-bottom: 0.4rem;
+  }
+  .voucher__row {
+    display: flex;
+    gap: 0.6rem;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .voucher__row input {
+    flex: 1 1 14rem;
+    padding: 0.85em 1em;
+    font: inherit;
+    font-size: var(--text-small);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .voucher__row input:focus {
+    outline: none;
+    border-color: var(--rose);
+  }
+  .voucher__row .btn {
+    padding-block: 0.7em;
+  }
+  .voucher__msg {
+    margin-top: 0.6rem;
+    font-size: var(--text-small);
+  }
+  .voucher__msg.is-ok {
+    color: #3d6b48;
+  }
+  .voucher__msg.is-err {
+    color: #8a3b34;
+  }
+
   .summary {
     margin: 1.4rem 0;
     padding: 1rem 1.2rem;
@@ -340,6 +395,10 @@ const cancelled = Astro.url.searchParams.get('cancelled') === '1';
   }
   .summary:empty {
     display: none;
+  }
+  .summary__save {
+    color: #3d6b48;
+    font-weight: 600;
   }
   .book__error {
     background: #fbeceb;

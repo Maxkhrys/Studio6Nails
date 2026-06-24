@@ -1,0 +1,63 @@
+---
+export const prerender = false;
+
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Thank you" noindex={true}>
+  <section class="done section">
+    <div class="done__card" data-reveal>
+      <div class="done__tick" aria-hidden="true">✓</div>
+      <p class="eyebrow">Thank you</p>
+      <h1>Your gift voucher is on its way</h1>
+      <p class="done__sub">
+        Payment received. We're emailing the voucher and its unique code now — to the
+        recipient if you gave their address, otherwise to you. The code is redeemed at
+        checkout when booking, and any unused balance stays on it for next time.
+      </p>
+      <div class="done__actions">
+        <a class="btn btn--primary" href="/book">Book an appointment</a>
+        <a class="btn btn--ghost" href="/">Back to home</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .done {
+    min-height: 70vh;
+    display: grid;
+    place-items: center;
+    padding-top: calc(var(--nav-height) + 3rem);
+    text-align: center;
+  }
+  .done__card {
+    max-width: 36rem;
+  }
+  .done__tick {
+    width: 3.4rem;
+    height: 3.4rem;
+    margin: 0 auto 1.4rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--blush);
+    color: var(--rose-deep);
+    font-size: 1.6rem;
+  }
+  .done__card h1 {
+    font-size: var(--text-h2);
+    margin: 0.3em 0 0.6em;
+  }
+  .done__sub {
+    color: var(--ink-soft);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+  .done__actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+</style>
