@@ -28,7 +28,10 @@ if (Astro.request.method === 'POST') {
       password,
       options: {
         data: { full_name: fullName, phone },
-        emailRedirectTo: new URL(safeRedirect, Astro.url.origin).href,
+        emailRedirectTo: new URL(
+          `/auth/callback?next=${encodeURIComponent(safeRedirect)}`,
+          Astro.url.origin,
+        ).href,
       },
     });
     if (authError) {

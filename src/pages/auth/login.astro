@@ -12,6 +12,11 @@ const safeRedirect = redirectParam.startsWith('/') ? redirectParam : '/account';
 
 let error: string | null = null;
 
+// Surfaced when an email confirmation / reset link was invalid or expired.
+if (Astro.url.searchParams.get('error') === 'link') {
+  error = 'That link was invalid or has expired. Please sign in, or sign up again.';
+}
+
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
   const email = String(form.get('email') || '').trim();
