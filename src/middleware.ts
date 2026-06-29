@@ -31,15 +31,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
       context.locals.supabase = supabase;
 
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (session?.user) {
-        context.locals.user = session.user;
+      if (user) {
+        context.locals.user = user;
         const { data: profile } = await supabase
           .from('profiles')
           .select('id, role, full_name, phone')
-          .eq('id', session.user.id)
+          .eq('id', user.id)
           .single();
         context.locals.profile = (profile as AppProfile) ?? null;
       }
