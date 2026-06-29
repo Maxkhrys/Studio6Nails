@@ -86,6 +86,7 @@ const fmt = (iso: string) =>
                         <input type="hidden" name="redirect" value="/admin" />
                         <button class="btn btn--ghost btn-sm" type="submit">No-show</button>
                       </form>
+                      <a class="btn btn--ghost btn-sm" href={`/admin/reschedule?b=${b.id}`}>Reschedule</a>
                       <form method="POST" action="/api/admin/booking-status" onsubmit="return confirm('Cancel this booking?')">
                         <input type="hidden" name="booking_id" value={b.id} />
                         <input type="hidden" name="status" value="cancelled" />

@@ -1,0 +1,145 @@
+---
+export const prerender = false;
+
+import AdminBase from '../../layouts/AdminBase.astro';
+
+const supabase = Astro.locals.supabase!;
+const profile = Astro.locals.profile!;
+const role = (profile.role === 'owner' ? 'owner' : 'staff') as 'owner' | 'staff';
+
+const bookingId = Astro.url.searchParams.get('b') ?? '';
+
+let booking: any = null;
+if (bookingId) {
+  const { data } = await supabase
+    .from('bookings')
+    .select(
+      'id, starts_at, status, staff_id, service_id, client_name, client_email, client_phone, service:services(name, duration_min), staff:staff(display_name)',
+    )
+    .eq('id', bookingId)
+    .maybeSingle();
+  booking = data;
+}
+
+if (!booking) return Astro.redirect('/admin');
+
+const canChange = ['pending_payment', 'confirmed'].includes(booking.status);
+
+const fmt = (iso: string) =>
+  new Intl.DateTimeFormat('en-IE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Dublin',
+  }).format(new Date(iso));
+
+const data = JSON.stringify({
+  bookingId: booking.id,
+  staffId: booking.staff_id,
+  serviceId: booking.service_id,
+});
+---
+
+<AdminBase title="Reschedule booking" active="dashboard" role={role} name={profile.full_name}>
+  <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:1.5rem;">
+    <a href="/admin" class="btn btn--ghost btn-sm">← Back</a>
+    <h1 class="admin-h1" style="margin:0;">Reschedule booking</h1>
+  </div>
+
+  <div class="admin-card" style="max-width:38rem;">
+    <p style="font-size:var(--text-tiny);text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-mid);margin-bottom:0.4rem;">
+      Current appointment
+    </p>
+    <p style="margin-bottom:0.2rem;">
+      <strong>{booking.service?.name ?? 'Appointment'}</strong> with {booking.staff?.display_name ?? '—'}
+    </p>
+    <p style="color:var(--ink-soft);margin-bottom:0.2rem;">{fmt(booking.starts_at)}</p>
+    {booking.client_name && (
+      <p style="color:var(--ink-mid);font-size:var(--text-small);">
+        Client: {booking.client_name}
+        {booking.client_phone && <> · {booking.client_phone}</>}
+        {booking.client_email && <> · {booking.client_email}</>}
+      </p>
+    )}
+  </div>
+
+  {
+    !canChange ? (
+      <div class="admin-card" style="max-width:38rem;">
+        <p>This booking has status <strong>{booking.status}</strong> and can no longer be rescheduled.</p>
+        <a class="btn btn--ghost" href="/admin">Back to bookings</a>
+      </div>
+    ) : (
+      <div class="admin-card" style="max-width:38rem;">
+        <h2>Choose a new time</h2>
+        <p style="color:var(--ink-soft);font-size:var(--text-small);margin-bottom:1.4rem;">
+          Same service and stylist. A confirmation email is sent to the client automatically.
+        </p>
+
+        <div class="field" style="max-width:14rem;margin-bottom:1.4rem;">
+          <label for="date">New date</label>
+          <input type="date" id="date" name="date" />
+        </div>
+
+        <div class="slots" id="slots" aria-live="polite"></div>
+
+        <p class="rs__error" id="rs-error" role="alert" hidden></p>
+
+        <div style="display:flex;gap:0.8rem;flex-wrap:wrap;margin-top:1.6rem;">
+          <button class="btn btn--primary" id="confirm" type="button" disabled>
+            Confirm new time
+          </button>
+          <a class="btn btn--ghost" href="/admin">Cancel</a>
+        </div>
+      </div>
+    )
+  }
+
+  <script type="application/json" id="rs-data" set:html={data}></script>
+  <script>
+    import '../../scripts/admin-reschedule';
+  </script>
+</AdminBase>
+
+<style>
+  .slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 1rem;
+  }
+  .slot {
+    background: var(--porcelain);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.6em 1em;
+    font-size: var(--text-small);
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  .slot:hover {
+    border-color: var(--rose);
+  }
+  .slot.is-selected {
+    border-color: var(--rose-deep);
+    background: var(--blush);
+  }
+  .slots__empty {
+    color: var(--ink-mid);
+    font-size: var(--text-small);
+  }
+  .rs__error {
+    background: #fbeceb;
+    border: 1px solid #e7bcb8;
+    color: #8a3b34;
+    padding: 0.7em 1em;
+    border-radius: var(--radius);
+    font-size: var(--text-small);
+    margin: 1.2rem 0 0;
+  }
+  #confirm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+</style>

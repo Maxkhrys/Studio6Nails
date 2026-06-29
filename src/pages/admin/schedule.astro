@@ -1,0 +1,301 @@
+---
+export const prerender = false;
+
+import AdminBase from '../../layouts/AdminBase.astro';
+
+const supabase = Astro.locals.supabase!;
+const profile = Astro.locals.profile!;
+const role = (profile.role === 'owner' ? 'owner' : 'staff') as 'owner' | 'staff';
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const { data: allStaff } = await supabase
+  .from('staff')
+  .select('id, display_name, active')
+  .order('sort_order')
+  .order('display_name');
+
+// Which staff member to view/edit — defaults to first active staff
+const staffIdParam = Astro.url.searchParams.get('staff');
+const activeStaff = (allStaff ?? []).filter((s: any) => s.active);
+const selectedStaff: any =
+  (staffIdParam ? (allStaff ?? []).find((s: any) => s.id === staffIdParam) : null) ??
+  activeStaff[0] ??
+  null;
+
+let flash: string | null = null;
+let flashError = false;
+
+if (Astro.request.method === 'POST' && role === 'owner' && selectedStaff) {
+  const form = await Astro.request.formData();
+  const action = String(form.get('action') || '');
+  const targetStaffId = String(form.get('staff_id') || selectedStaff.id);
+
+  if (action === 'add_rule') {
+    const weekday = Number(form.get('weekday'));
+    const start = String(form.get('start_time') || '');
+    const end = String(form.get('end_time') || '');
+    if (start && end && end > start) {
+      await supabase.from('availability_rules').insert({
+        staff_id: targetStaffId,
+        weekday,
+        start_time: start,
+        end_time: end,
+      });
+      flash = 'Working hours added.';
+    } else {
+      flash = 'End time must be after start time.';
+      flashError = true;
+    }
+  } else if (action === 'del_rule') {
+    await supabase.from('availability_rules').delete().eq('id', String(form.get('id')));
+    flash = 'Working hours removed.';
+  } else if (action === 'add_exc') {
+    const date = String(form.get('date') || '');
+    if (date) {
+      await supabase.from('availability_exceptions').insert({
+        staff_id: targetStaffId,
+        date,
+        is_closed: true,
+        note: String(form.get('note') || ''),
+      });
+      flash = 'Closure added.';
+    }
+  } else if (action === 'del_exc') {
+    await supabase.from('availability_exceptions').delete().eq('id', String(form.get('id')));
+    flash = 'Closure removed.';
+  }
+}
+
+const todayStr = new Date().toISOString().slice(0, 10);
+
+const [{ data: rules }, { data: exceptions }] = selectedStaff
+  ? await Promise.all([
+      supabase
+        .from('availability_rules')
+        .select('id, weekday, start_time, end_time')
+        .eq('staff_id', selectedStaff.id)
+        .order('weekday'),
+      supabase
+        .from('availability_exceptions')
+        .select('id, date, note')
+        .eq('staff_id', selectedStaff.id)
+        .gte('date', todayStr)
+        .order('date'),
+    ])
+  : [{ data: [] }, { data: [] }];
+
+const hhmm = (t: string) => t.slice(0, 5);
+const staffUrl = (id: string) => `/admin/schedule?staff=${id}`;
+---
+
+<AdminBase title="Schedule" active="schedule" role={role} name={profile.full_name}>
+  <h1 class="admin-h1">Staff schedules</h1>
+
+  {flash && (
+    <p
+      class="admin-flash"
+      style={flashError ? 'background:#fbeceb;border-color:#e7bcb8;color:#8a3b34;' : ''}
+    >
+      {flash}
+    </p>
+  )}
+
+  {(allStaff ?? []).length === 0 ? (
+    <div class="admin-card">
+      <p>No staff added yet. <a href="/admin/staff">Add staff first →</a></p>
+    </div>
+  ) : (
+    <>
+      <!-- Staff selector tabs -->
+      <div class="staff-tabs">
+        {(allStaff ?? []).map((s: any) => (
+          <a
+            href={staffUrl(s.id)}
+            class:list={['staff-tab', { 'is-active': selectedStaff?.id === s.id }]}
+          >
+            {s.display_name}
+            {!s.active && <span class="inactive-badge">inactive</span>}
+          </a>
+        ))}
+      </div>
+
+      {selectedStaff && (
+        <>
+          <!-- Weekly working hours -->
+          <div class="admin-card">
+            <h2>Weekly hours — {selectedStaff.display_name}</h2>
+            <p style="color:var(--ink-soft);font-size:var(--text-small);margin-bottom:1.2rem;">
+              These define the times clients can book this stylist online.
+              {role !== 'owner' && ' Only the owner can make changes.'}
+            </p>
+
+            {(rules ?? []).length === 0 ? (
+              <p style="color:var(--ink-mid);margin-bottom:1.2rem;">No working hours set yet.</p>
+            ) : (
+              <table class="admin-table" style="margin-bottom:1.4rem;">
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    <th>From</th>
+                    <th>To</th>
+                    {role === 'owner' && <th></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(rules ?? []).map((r: any) => (
+                    <tr>
+                      <td>{WEEKDAYS[r.weekday]}</td>
+                      <td>{hhmm(r.start_time)}</td>
+                      <td>{hhmm(r.end_time)}</td>
+                      {role === 'owner' && (
+                        <td>
+                          <form method="POST" action={staffUrl(selectedStaff.id)}>
+                            <input type="hidden" name="action" value="del_rule" />
+                            <input type="hidden" name="staff_id" value={selectedStaff.id} />
+                            <input type="hidden" name="id" value={r.id} />
+                            <button class="link-btn" type="submit">Remove</button>
+                          </form>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {role === 'owner' && (
+              <form method="POST" action={staffUrl(selectedStaff.id)} class="admin-form-row">
+                <input type="hidden" name="action" value="add_rule" />
+                <input type="hidden" name="staff_id" value={selectedStaff.id} />
+                <div class="field">
+                  <label for="weekday">Day</label>
+                  <select id="weekday" name="weekday">
+                    {WEEKDAYS.map((d, i) => <option value={i}>{d}</option>)}
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="start_time">From</label>
+                  <input id="start_time" name="start_time" type="time" required />
+                </div>
+                <div class="field">
+                  <label for="end_time">To</label>
+                  <input id="end_time" name="end_time" type="time" required />
+                </div>
+                <button class="btn btn--primary btn-sm" type="submit">Add hours</button>
+              </form>
+            )}
+          </div>
+
+          <!-- Closures & days off -->
+          <div class="admin-card">
+            <h2>Closures &amp; days off — {selectedStaff.display_name}</h2>
+            <p style="color:var(--ink-soft);font-size:var(--text-small);margin-bottom:1.2rem;">
+              Block a specific date (holiday, training, etc.). Clients won't be able to book this
+              stylist that day.
+            </p>
+
+            {(exceptions ?? []).length === 0 ? (
+              <p style="color:var(--ink-mid);margin-bottom:1.2rem;">No upcoming closures.</p>
+            ) : (
+              <table class="admin-table" style="margin-bottom:1.4rem;">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Note</th>
+                    {role === 'owner' && <th></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(exceptions ?? []).map((e: any) => (
+                    <tr>
+                      <td>{e.date}</td>
+                      <td>{e.note || '—'}</td>
+                      {role === 'owner' && (
+                        <td>
+                          <form method="POST" action={staffUrl(selectedStaff.id)}>
+                            <input type="hidden" name="action" value="del_exc" />
+                            <input type="hidden" name="staff_id" value={selectedStaff.id} />
+                            <input type="hidden" name="id" value={e.id} />
+                            <button class="link-btn" type="submit">Remove</button>
+                          </form>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {role === 'owner' && (
+              <form method="POST" action={staffUrl(selectedStaff.id)} class="admin-form-row">
+                <input type="hidden" name="action" value="add_exc" />
+                <input type="hidden" name="staff_id" value={selectedStaff.id} />
+                <div class="field">
+                  <label for="date">Date</label>
+                  <input id="date" name="date" type="date" min={todayStr} required />
+                </div>
+                <div class="field">
+                  <label for="note">Note (optional)</label>
+                  <input id="note" name="note" type="text" placeholder="Holiday" />
+                </div>
+                <button class="btn btn--primary btn-sm" type="submit">Add closure</button>
+              </form>
+            )}
+          </div>
+        </>
+      )}
+    </>
+  )}
+</AdminBase>
+
+<style>
+  .staff-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1.5rem;
+  }
+  .staff-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45em 1em;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: var(--porcelain);
+    font-size: var(--text-small);
+    color: var(--ink);
+    text-decoration: none;
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  .staff-tab:hover {
+    border-color: var(--rose);
+  }
+  .staff-tab.is-active {
+    border-color: var(--rose-deep);
+    background: var(--blush);
+    color: var(--espresso);
+    font-weight: 500;
+  }
+  .inactive-badge {
+    font-size: 0.7rem;
+    color: var(--ink-mid);
+    background: var(--line-soft);
+    border-radius: 2px;
+    padding: 0.1em 0.4em;
+    letter-spacing: 0.04em;
+  }
+  .link-btn {
+    background: none;
+    border: 0;
+    color: var(--ink-mid);
+    text-decoration: underline;
+    font-size: var(--text-small);
+    padding: 0;
+    cursor: pointer;
+  }
+  .link-btn:hover {
+    color: #8a3b34;
+  }
+</style>

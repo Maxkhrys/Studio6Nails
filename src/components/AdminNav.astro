@@ -1,6 +1,6 @@
 ---
 interface Props {
-  active: 'dashboard' | 'availability' | 'services' | 'staff' | 'vouchers' | 'clients';
+  active: 'dashboard' | 'availability' | 'schedule' | 'services' | 'staff' | 'vouchers' | 'clients';
   role: 'owner' | 'staff';
   name?: string | null;
 }
@@ -9,6 +9,7 @@ const { active, role, name } = Astro.props;
 const links = [
   { id: 'dashboard', href: '/admin', label: 'Bookings', all: true },
   { id: 'availability', href: '/admin/availability', label: 'My availability', all: true },
+  { id: 'schedule', href: '/admin/schedule', label: 'Schedule', all: true },
   { id: 'services', href: '/admin/services', label: 'Services', all: false },
   { id: 'staff', href: '/admin/staff', label: 'Staff', all: false },
   { id: 'vouchers', href: '/admin/vouchers', label: 'Vouchers', all: false },

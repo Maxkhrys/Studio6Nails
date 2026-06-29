@@ -67,16 +67,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ ok: false, message: 'This booking can no longer be changed.' }, 400);
   }
 
-  // Cutoff is measured against the CURRENT appointment time.
-  const cutoffMs = RESCHEDULE_CUTOFF_HOURS * 60 * 60 * 1000;
-  if (new Date(booking.starts_at).getTime() - Date.now() < cutoffMs) {
-    return json(
-      {
-        ok: false,
-        message: `Appointments can only be moved more than ${RESCHEDULE_CUTOFF_HOURS} hours ahead. Please call us to change this one.`,
-      },
-      400,
-    );
+  // Cutoff only applies to clients — staff/owners can reschedule any time.
+  if (role !== 'owner' && role !== 'staff') {
+    const cutoffMs = RESCHEDULE_CUTOFF_HOURS * 60 * 60 * 1000;
+    if (new Date(booking.starts_at).getTime() - Date.now() < cutoffMs) {
+      return json(
+        {
+          ok: false,
+          message: `Appointments can only be moved more than ${RESCHEDULE_CUTOFF_HOURS} hours ahead. Please call us to change this one.`,
+        },
+        400,
+      );
+    }
   }
 
   const service = (booking as any).service as { name: string; duration_min: number; active: boolean };
