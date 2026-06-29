@@ -11,6 +11,7 @@ const redirectParam = Astro.url.searchParams.get('redirect') || '/account';
 const safeRedirect = redirectParam.startsWith('/') ? redirectParam : '/account';
 
 let error: string | null = null;
+let loginSuccess = false;
 
 // Surfaced when an email confirmation / reset link was invalid or expired.
 if (Astro.url.searchParams.get('error') === 'link') {
@@ -28,20 +29,19 @@ if (Astro.request.method === 'POST') {
     const supabase = createSupabaseServer(Astro.cookies);
     const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
     if (authError) {
-      error = "That email and password didn’t match. Please try again.";
+      error = "That email and password didn't match. Please try again.";
     } else {
-      // Supabase SSR writes session cookies via an async onAuthStateChange handler.
-      // Calling getUser() forces a network round-trip that drains those async
-      // microtasks before the redirect response is sent, so the cookies arrive
-      // in the browser on the first request to /account.
-      await supabase.auth.getUser();
-      return Astro.redirect(safeRedirect);
+      // Return a 200 page (not a redirect) so the browser processes the
+      // Set-Cookie headers before navigating. Astro.redirect() on some
+      // Vercel deployments drops the cookies from the 302 response.
+      loginSuccess = true;
     }
   }
 }
 ---
 
 <Base title="Sign in" noindex={true}>
+  {loginSuccess && <meta http-equiv="refresh" content={`0;url=${safeRedirect}`} />}
   <section class="auth section">
     <div class="auth__card" data-reveal>
       <p class="eyebrow">Welcome back</p>
