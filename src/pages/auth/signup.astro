@@ -38,13 +38,12 @@ if (Astro.request.method === 'POST') {
     if (authError) {
       error = authError.message;
     } else if (data.session) {
-      // Email confirmation disabled — signed in immediately. Flush session
-      // cookies before redirecting (see login.astro comment for why).
-      await supabase.auth.getUser();
-      // Send welcome email best-effort (never blocks the redirect).
+      // Email confirmation disabled — signed in immediately. The session cookie
+      // rides on this response; middleware marks /auth no-store so Vercel keeps
+      // the Set-Cookie header through the redirect.
       const { subject, html } = buildWelcomeEmail({ to: email, name: fullName });
       await sendEmail({ to: email, subject, html, bcc: import.meta.env.BOOKING_NOTIFY_EMAIL });
-      return Astro.redirect(safeRedirect);
+      return Astro.redirect(safeRedirect, 303);
     } else {
       // Confirmation required.
       confirmEmail = true;

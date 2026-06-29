@@ -11,7 +11,6 @@ const redirectParam = Astro.url.searchParams.get('redirect') || '/account';
 const safeRedirect = redirectParam.startsWith('/') ? redirectParam : '/account';
 
 let error: string | null = null;
-let loginSuccess = false;
 
 // Surfaced when an email confirmation / reset link was invalid or expired.
 if (Astro.url.searchParams.get('error') === 'link') {
@@ -31,17 +30,15 @@ if (Astro.request.method === 'POST') {
     if (authError) {
       error = "That email and password didn't match. Please try again.";
     } else {
-      // Return a 200 page (not a redirect) so the browser processes the
-      // Set-Cookie headers before navigating. Astro.redirect() on some
-      // Vercel deployments drops the cookies from the 302 response.
-      loginSuccess = true;
+      // The session cookie is set on this response. Middleware tags auth routes
+      // as no-store so Vercel keeps the Set-Cookie header through the redirect.
+      return Astro.redirect(safeRedirect, 303);
     }
   }
 }
 ---
 
 <Base title="Sign in" noindex={true}>
-  {loginSuccess && <meta http-equiv="refresh" content={`0;url=${safeRedirect}`} />}
   <section class="auth section">
     <div class="auth__card" data-reveal>
       <p class="eyebrow">Welcome back</p>

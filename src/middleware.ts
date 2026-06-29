@@ -13,6 +13,17 @@ import type { AppProfile } from './env';
 
 const PROTECTED = [/^\/account/, /^\/admin/];
 const ADMIN_ONLY = [/^\/admin/];
+// Anything that reads or writes the auth session must never be cached. On
+// Vercel a cacheable response has its Set-Cookie headers stripped, which would
+// silently drop the session cookie set during sign-in/sign-up — the classic
+// "log in, bounce straight back to the login page" symptom.
+const NO_STORE = [/^\/account/, /^\/admin/, /^\/auth/, /^\/api/];
+
+/** Mark a response uncacheable so Vercel keeps its Set-Cookie headers. */
+function preserveCookies(response: Response): Response {
+  response.headers.set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
+  return response;
+}
 
 export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.supabase = null;
@@ -24,6 +35,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const path = context.url.pathname;
   const isProtected = PROTECTED.some((re) => re.test(path));
+  const isSensitive = NO_STORE.some((re) => re.test(path));
 
   if (configured) {
     try {
@@ -50,15 +62,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   if (isProtected && !context.locals.user) {
     const redirectTo = encodeURIComponent(path + context.url.search);
-    return context.redirect(`/auth/login?redirect=${redirectTo}`);
+    return preserveCookies(context.redirect(`/auth/login?redirect=${redirectTo}`));
   }
 
   if (ADMIN_ONLY.some((re) => re.test(path))) {
     const role = context.locals.profile?.role;
     if (role !== 'owner' && role !== 'staff') {
-      return context.redirect('/account');
+      return preserveCookies(context.redirect('/account'));
     }
   }
 
-  return next();
+  const response = await next();
+  return isSensitive ? preserveCookies(response) : response;
 });
