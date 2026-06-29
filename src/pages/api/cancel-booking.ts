@@ -18,7 +18,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect, locals }) => 
 
   if (!bookingId) return redirect(safeBack);
 
-  const supabase = createSupabaseServer(cookies);
+  const supabase = createSupabaseServer(cookies, request);
   await supabase
     .from('bookings')
     .update({ status: 'cancelled' })

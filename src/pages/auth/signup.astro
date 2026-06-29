@@ -23,7 +23,7 @@ if (Astro.request.method === 'POST') {
   if (!fullName || !email || password.length < 8) {
     error = 'Please enter your name, email and a password of at least 8 characters.';
   } else {
-    const supabase = createSupabaseServer(Astro.cookies);
+    const supabase = createSupabaseServer(Astro.cookies, Astro.request);
     const { data, error: authError } = await supabase.auth.signUp({
       email,
       password,

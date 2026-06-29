@@ -39,7 +39,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   if (configured) {
     try {
-      const supabase = createSupabaseServer(context.cookies);
+      const supabase = createSupabaseServer(context.cookies, context.request);
       context.locals.supabase = supabase;
 
       const {

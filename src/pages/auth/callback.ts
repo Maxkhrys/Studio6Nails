@@ -14,7 +14,7 @@ import { createSupabaseServer } from '../../lib/supabase/server';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ url, cookies, redirect }) => {
+export const GET: APIRoute = async ({ request, url, cookies, redirect }) => {
   const nextParam = url.searchParams.get('next') || '/account';
   const next = nextParam.startsWith('/') ? nextParam : '/account';
 
@@ -22,7 +22,7 @@ export const GET: APIRoute = async ({ url, cookies, redirect }) => {
   const tokenHash = url.searchParams.get('token_hash');
   const type = url.searchParams.get('type');
 
-  const supabase = createSupabaseServer(cookies);
+  const supabase = createSupabaseServer(cookies, request);
 
   try {
     if (code) {

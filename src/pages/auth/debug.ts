@@ -33,7 +33,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 
   if (configured) {
     try {
-      const supabase = createSupabaseServer(cookies);
+      const supabase = createSupabaseServer(cookies, request);
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       getUserResult = userErr
         ? { error: userErr.message, status: userErr.status }
